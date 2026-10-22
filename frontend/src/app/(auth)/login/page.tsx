@@ -214,6 +214,16 @@ export default function LoginPage() {
                   Create an account
                 </Link>
               </div>
+
+              <div className="mt-6 pt-5 border-t border-zinc-800/60 text-center text-[11px] text-zinc-500 flex items-center justify-center gap-3">
+                <Link href="/terms" className="hover:text-zinc-300 transition-colors underline underline-offset-2">
+                  Terms of Service
+                </Link>
+                <span>•</span>
+                <Link href="/privacy" className="hover:text-zinc-300 transition-colors underline underline-offset-2">
+                  Privacy Policy
+                </Link>
+              </div>
             </>
           )}
         </div>
