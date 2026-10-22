@@ -13,7 +13,7 @@ def get_secret_key() -> str:
     if not key:
         if get_ai_settings().app_env.lower() != "development":
             raise RuntimeError("JWT_SECRET_KEY must be configured outside development.")
-        return "smart_learning_planner_dev_stable_jwt_key_2026_xyz"
+        return "plan2learn_dev_stable_jwt_key_2026_xyz"
     return key
 
 ALGORITHM = "HS256"
