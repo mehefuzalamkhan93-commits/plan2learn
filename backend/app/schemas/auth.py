@@ -78,3 +78,20 @@ class FullProfileResponse(BaseModel):
     success: bool = True
     data: FullProfileData
     message: str = "Profile retrieved successfully."
+
+
+class DeviceSessionOut(BaseModel):
+    id: str
+    device_id: str
+    device_name: str
+    device_type: str
+    is_current: bool = False
+    last_active_at: str
+    created_at: str
+
+
+class DevicesResponse(BaseModel):
+    success: bool = True
+    max_devices: int = 2
+    devices: list[DeviceSessionOut]
+

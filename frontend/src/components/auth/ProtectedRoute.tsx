@@ -4,12 +4,14 @@ import { ReactNode, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { LoaderCircle, LogIn, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useDeviceSync } from '@/hooks/useDeviceSync';
 import { getFirstAuthenticatedRoute } from '@/lib/authRouting';
 
 export default function ProtectedRoute({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, status, error } = useAuth();
+  useDeviceSync();
 
   useEffect(() => {
     if (status === 'unauthenticated') {

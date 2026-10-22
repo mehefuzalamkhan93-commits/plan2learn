@@ -25,6 +25,38 @@ export interface AuthenticatedUser {
   has_student_profile: boolean;
 }
 
+export interface DeviceSession {
+  id: string;
+  device_id?: string;
+  device_name: string;
+  device_type: 'mobile' | 'desktop' | 'tablet' | 'unknown' | string;
+  is_current: boolean;
+  last_active?: string;
+  last_active_at?: string;
+  created_at: string;
+  ip_address?: string;
+}
+
+export interface DevicesResponse {
+  success?: boolean;
+  max_devices?: number;
+  max_allowed?: number;
+  current_count?: number;
+  devices: DeviceSession[];
+}
+
+export type DeviceSessionOut = DeviceSession;
+
+export interface SyncStatus {
+  success: boolean;
+  session_valid: boolean;
+  active_devices_count: number;
+  streak_count: number;
+  readiness_score: number;
+  server_time: string;
+}
+
+
 export interface SignupRequest {
   full_name: string;
   email: string;
@@ -600,3 +632,4 @@ export interface PlanProposalGenerateRequest {
   daily_hours?: number;
   exam_date?: string;
 }
+

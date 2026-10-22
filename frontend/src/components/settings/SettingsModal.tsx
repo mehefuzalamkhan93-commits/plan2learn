@@ -22,6 +22,7 @@ import {
   Trash2,
   Sun,
   Moon,
+  Smartphone,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { authAPI } from '@/services/api';
@@ -30,11 +31,12 @@ import { usePlannerStore } from '@/store/usePlannerStore';
 import { useTheme } from '@/lib/theme';
 import { FullProfileData, ProfileUpdateRequest, UserProfile } from '@/types';
 import { cn } from '@/lib/utils';
+import DeviceSyncManager from './DeviceSyncManager';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: 'profile' | 'account';
+  initialTab?: 'profile' | 'account' | 'devices';
 }
 
 const educationLevels = ['High School', 'Undergraduate', 'Postgraduate', 'Other'];
@@ -87,7 +89,7 @@ export default function SettingsModal({ isOpen, onClose, initialTab = 'profile' 
   const { userProfile, setUserProfile, fetchDashboardSummary, setIsRoadmapStale } = usePlannerStore();
   const { theme, toggleTheme } = useTheme();
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'account'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'profile' | 'account' | 'devices'>(initialTab);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -352,15 +354,27 @@ export default function SettingsModal({ isOpen, onClose, initialTab = 'profile' 
           <div className="shrink-0 flex items-center justify-between border-b border-white/[0.08] dark:border-white/[0.08] light:border-slate-200 px-5 sm:px-6 py-4 bg-zinc-900/60 dark:bg-zinc-900/60 light:bg-slate-50">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 light:border-indigo-200 light:bg-indigo-50 light:text-indigo-600">
-                {activeTab === 'profile' ? <User className="h-4 w-4" /> : <Settings className="h-4 w-4" />}
+                {activeTab === 'profile' ? (
+                  <User className="h-4 w-4" />
+                ) : activeTab === 'devices' ? (
+                  <Smartphone className="h-4 w-4" />
+                ) : (
+                  <Settings className="h-4 w-4" />
+                )}
               </div>
               <div>
                 <h2 id="settings-modal-title" className="text-base sm:text-lg font-semibold text-white dark:text-white light:text-slate-900">
-                  {activeTab === 'profile' ? 'Student Profile' : 'Settings & Preferences'}
+                  {activeTab === 'profile'
+                    ? 'Student Profile'
+                    : activeTab === 'devices'
+                    ? 'Connected Devices & Sync'
+                    : 'Settings & Preferences'}
                 </h2>
                 <p className="text-xs text-zinc-400 dark:text-zinc-400 light:text-slate-500">
                   {activeTab === 'profile'
                     ? 'Manage your learning identity, subjects, and study preferences'
+                    : activeTab === 'devices'
+                    ? 'Manage 2-device limit, view connected phones/PCs, and sync status'
                     : 'Application preferences, theme appearance, and session security'}
                 </p>
               </div>
@@ -375,12 +389,12 @@ export default function SettingsModal({ isOpen, onClose, initialTab = 'profile' 
           </div>
 
           {/* Navigation Tabs - Pinned */}
-          <div className="shrink-0 flex border-b border-white/[0.08] dark:border-white/[0.08] light:border-slate-200 bg-zinc-900/30 dark:bg-zinc-900/30 light:bg-slate-50/70 px-5 sm:px-6">
+          <div className="shrink-0 flex border-b border-white/[0.08] dark:border-white/[0.08] light:border-slate-200 bg-zinc-900/30 dark:bg-zinc-900/30 light:bg-slate-50/70 px-4 sm:px-6 overflow-x-auto no-scrollbar gap-1 sm:gap-2">
             <button
               type="button"
               onClick={() => setActiveTab('profile')}
               className={cn(
-                'flex items-center gap-2 border-b-2 px-3 py-2.5 text-xs sm:text-sm font-medium transition-colors cursor-pointer',
+                'flex items-center gap-2 border-b-2 px-3 py-2.5 text-xs sm:text-sm font-medium transition-colors cursor-pointer whitespace-nowrap',
                 activeTab === 'profile'
                   ? 'border-indigo-500 text-indigo-400 dark:text-white light:text-indigo-600'
                   : 'border-transparent text-zinc-400 hover:text-zinc-200 light:text-slate-500 light:hover:text-slate-900'
@@ -391,16 +405,29 @@ export default function SettingsModal({ isOpen, onClose, initialTab = 'profile' 
             </button>
             <button
               type="button"
+              onClick={() => setActiveTab('devices')}
+              className={cn(
+                'flex items-center gap-2 border-b-2 px-3 py-2.5 text-xs sm:text-sm font-medium transition-colors cursor-pointer whitespace-nowrap',
+                activeTab === 'devices'
+                  ? 'border-indigo-500 text-indigo-400 dark:text-white light:text-indigo-600'
+                  : 'border-transparent text-zinc-400 hover:text-zinc-200 light:text-slate-500 light:hover:text-slate-900'
+              )}
+            >
+              <Smartphone className="h-4 w-4" />
+              Devices &amp; Sync
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab('account')}
               className={cn(
-                'flex items-center gap-2 border-b-2 px-3 py-2.5 text-xs sm:text-sm font-medium transition-colors cursor-pointer',
+                'flex items-center gap-2 border-b-2 px-3 py-2.5 text-xs sm:text-sm font-medium transition-colors cursor-pointer whitespace-nowrap',
                 activeTab === 'account'
                   ? 'border-indigo-500 text-indigo-400 dark:text-white light:text-indigo-600'
                   : 'border-transparent text-zinc-400 hover:text-zinc-200 light:text-slate-500 light:hover:text-slate-900'
               )}
             >
               <Settings className="h-4 w-4" />
-              Settings &amp; Preferences
+              Preferences
             </button>
           </div>
 
@@ -729,6 +756,8 @@ export default function SettingsModal({ isOpen, onClose, initialTab = 'profile' 
                   </div>
                 </div>
               </form>
+            ) : activeTab === 'devices' ? (
+              <DeviceSyncManager />
             ) : (
               /* Account & Session Tab */
               <div className="space-y-6">
@@ -787,6 +816,32 @@ export default function SettingsModal({ isOpen, onClose, initialTab = 'profile' 
                       className="cursor-pointer inline-flex items-center gap-1.5 rounded-xl border border-white/[0.1] dark:border-white/[0.1] light:border-slate-300 bg-white/[0.05] dark:bg-white/[0.05] light:bg-white px-3.5 py-2 text-xs font-semibold text-white dark:text-white light:text-slate-800 shadow-xs transition-colors hover:bg-white/10 dark:hover:bg-white/10 light:hover:bg-slate-100"
                     >
                       Switch to {theme === 'dark' ? 'Light' : 'Dark'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Connected Devices & Sync Card */}
+                <div className="rounded-xl border border-white/[0.08] dark:border-white/[0.08] light:border-slate-200 bg-zinc-900/60 dark:bg-zinc-900/60 light:bg-slate-50 p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 light:bg-indigo-50 light:text-indigo-600 light:border-indigo-200">
+                        <Smartphone className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-white dark:text-white light:text-slate-900">
+                          Connected Devices &amp; Sync
+                        </h4>
+                        <p className="text-xs text-zinc-400 dark:text-zinc-400 light:text-slate-500">
+                          Active on max 2 devices (Phone, PC, Tablet) with real-time sync
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('devices')}
+                      className="cursor-pointer inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3.5 py-2 text-xs font-semibold text-indigo-400 hover:bg-indigo-500/20 light:border-indigo-200 light:bg-indigo-50 light:text-indigo-600 light:hover:bg-indigo-100 transition-colors"
+                    >
+                      Manage Devices &rarr;
                     </button>
                   </div>
                 </div>

@@ -39,7 +39,11 @@ import {
   PlanProposalGenerateRequest,
   StudyTaskDetailOut,
   CreateTaskRequest,
+  DeviceSession,
+  DevicesResponse,
+  SyncStatus,
 } from '@/types';
+import { getDeviceHeaders } from '@/lib/device';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
@@ -78,6 +82,12 @@ apiClient.interceptors.request.use((config) => {
     const token = getStoredToken();
     if (token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    const deviceHeaders = getDeviceHeaders();
+    for (const [key, value] of Object.entries(deviceHeaders)) {
+      if (!config.headers[key]) {
+        config.headers[key] = value;
+      }
     }
   }
 
@@ -225,7 +235,28 @@ export const authAPI = {
     const response = await apiClient.put<ApiResponse<FullProfileData>>('/auth/profile', data);
     return response.data;
   },
+
+  getDevices: async () => {
+    const response = await apiClient.get<DevicesResponse>('/auth/devices');
+    return response.data;
+  },
+
+  revokeDevice: async (sessionId: string) => {
+    const response = await apiClient.post<{ success: boolean; message: string }>(
+      `/auth/devices/${sessionId}/revoke`
+    );
+    return response.data;
+  },
 };
+
+// Cross-device sync endpoints
+export const syncAPI = {
+  getStatus: async () => {
+    const response = await apiClient.get<SyncStatus>('/sync/status');
+    return response.data;
+  },
+};
+
 
 // Planner endpoints
 export const plannerAPI = {

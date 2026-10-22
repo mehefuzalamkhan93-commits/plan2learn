@@ -1,5 +1,5 @@
 from app.core.database import Base
-from app.models.user import Exam, User, StudentProfile
+from app.models.user import Exam, User, StudentProfile, UserSession
 from app.models.catalog import Subject, Topic
 from app.models.ai import AIConversation, AIMessage
 from app.models.notebook import Notebook, Source, SourceChunk, NotebookNote
@@ -12,6 +12,7 @@ __all__ = [
     "User",
     "StudentProfile",
     "Exam",
+    "UserSession",
     "Subject",
     "Topic",
     "AIConversation",

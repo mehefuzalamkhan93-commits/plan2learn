@@ -1,3 +1,4 @@
+from typing import Any
 import logging
 import secrets
 import httpx
@@ -7,16 +8,21 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.ai.config import AISettings, get_ai_settings
 from app.core.security import (
+    MAX_ACTIVE_DEVICES,
     create_access_token,
     decode_access_token,
+    extract_device_info,
     get_current_user_from_token,
     hash_password,
+    register_or_rotate_session,
     verify_password,
 )
-from app.models.user import StudentProfile, User
+from app.models.user import StudentProfile, User, UserSession
 from app.schemas.auth import (
     AuthData,
     AuthResponse,
+    DeviceSessionOut,
+    DevicesResponse,
     FullProfileData,
     FullProfileResponse,
     GoogleAuthRequest,
@@ -36,11 +42,11 @@ def get_current_user(
     access_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db),
 ) -> User:
-    token = access_token
-    if not token:
-        auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
-        if auth_header and auth_header.lower().startswith("bearer "):
-            token = auth_header[7:].strip()
+    auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
+    if auth_header and auth_header.lower().startswith("bearer "):
+        token = auth_header[7:].strip()
+    else:
+        token = access_token
 
     if not token:
         raise HTTPException(
@@ -75,6 +81,7 @@ def get_current_user(
 @router.post("/signup", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 def signup(
     payload: SignupRequest,
+    request: Request,
     response: Response,
     db: Session = Depends(get_db),
 ) -> AuthResponse:
@@ -116,7 +123,9 @@ def signup(
     db.commit()
     db.refresh(user)
 
-    token = create_access_token(data={"sub": user.id})
+    device_info = extract_device_info(request)
+    session = register_or_rotate_session(db, user.id, **device_info)
+    token = create_access_token(data={"sub": user.id, "sid": session.id})
     response.set_cookie(
         key="access_token",
         value=token,
@@ -137,6 +146,7 @@ def signup(
 @router.post("/login", response_model=AuthResponse)
 def login(
     payload: LoginRequest,
+    request: Request,
     response: Response,
     db: Session = Depends(get_db),
 ) -> AuthResponse:
@@ -147,7 +157,9 @@ def login(
             detail="Invalid email or password",
         )
 
-    token = create_access_token(data={"sub": user.id})
+    device_info = extract_device_info(request)
+    session = register_or_rotate_session(db, user.id, **device_info)
+    token = create_access_token(data={"sub": user.id, "sid": session.id})
     response.set_cookie(
         key="access_token",
         value=token,
@@ -227,6 +239,7 @@ def google_auth_config(settings: AISettings = Depends(get_ai_settings)) -> dict[
 @router.post("/google", response_model=AuthResponse)
 async def google_auth(
     payload: GoogleAuthRequest,
+    request: Request,
     response: Response,
     db: Session = Depends(get_db),
     settings: AISettings = Depends(get_ai_settings),
@@ -290,7 +303,9 @@ async def google_auth(
             db.commit()
             db.refresh(user)
 
-    token = create_access_token(data={"sub": user.id})
+    device_info = extract_device_info(request)
+    session = register_or_rotate_session(db, user.id, **device_info)
+    token = create_access_token(data={"sub": user.id, "sid": session.id})
     response.set_cookie(
         key="access_token",
         value=token,
@@ -309,13 +324,92 @@ async def google_auth(
 
 
 @router.post("/logout", response_model=AuthResponse)
-def logout(response: Response) -> AuthResponse:
+def logout(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    token = request.cookies.get("access_token")
+    if not token:
+        auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
+        if auth_header and auth_header.lower().startswith("bearer "):
+            token = auth_header[7:].strip()
+    if token:
+        payload = decode_access_token(token)
+        if payload and "sid" in payload:
+            session = db.query(UserSession).filter(UserSession.id == payload["sid"]).first()
+            if session:
+                session.is_active = False
+                db.commit()
+
     response.delete_cookie(
         key="access_token",
         samesite="none" if get_ai_settings().app_env.lower() != "development" else "lax",
         secure=get_ai_settings().app_env.lower() != "development",
     )
     return AuthResponse(success=True, data=None, message="Logged out successfully.")
+
+
+@router.get("/devices", response_model=DevicesResponse)
+def get_user_devices(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> DevicesResponse:
+    token = request.cookies.get("access_token")
+    if not token:
+        auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
+        if auth_header and auth_header.lower().startswith("bearer "):
+            token = auth_header[7:].strip()
+
+    current_sid = None
+    if token:
+        payload = decode_access_token(token)
+        if payload:
+            current_sid = payload.get("sid")
+
+    sessions = (
+        db.query(UserSession)
+        .filter(UserSession.user_id == current_user.id, UserSession.is_active.is_(True))
+        .order_by(UserSession.last_active_at.desc())
+        .limit(MAX_ACTIVE_DEVICES)
+        .all()
+    )
+
+    out = []
+    for s in sessions:
+        out.append(
+            DeviceSessionOut(
+                id=s.id,
+                device_id=s.device_id,
+                device_name=s.device_name,
+                device_type=s.device_type,
+                is_current=(s.id == current_sid),
+                last_active_at=s.last_active_at.isoformat(),
+                created_at=s.created_at.isoformat(),
+            )
+        )
+    return DevicesResponse(success=True, max_devices=MAX_ACTIVE_DEVICES, devices=out)
+
+
+@router.post("/devices/{session_id}/revoke")
+def revoke_device_session(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    session = (
+        db.query(UserSession)
+        .filter(UserSession.id == session_id, UserSession.user_id == current_user.id)
+        .first()
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Device session not found.")
+
+    session.is_active = False
+    db.commit()
+    return {"success": True, "message": f"Device {session.device_name} has been disconnected."}
+
 
 
 @router.get("/me", response_model=AuthResponse)

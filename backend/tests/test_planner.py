@@ -509,7 +509,6 @@ def test_regression_no_database_changes_after_rejected_confirmation(
     """Requirement 10: No DB records created and user is_onboarded remains False after rejection."""
     test_email = "no_db_pollute@example.com"
     signup(planner_client, test_email)
-    complete_onboarding(planner_client)
 
     # Submit an invalid proposal (missing days)
     invalid_proposal = {

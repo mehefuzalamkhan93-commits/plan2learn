@@ -12,6 +12,7 @@ from app.api.onboarding import router as onboarding_router
 from app.api.ai import router as ai_router
 from app.api.planner import router as planner_router
 from app.api.dashboard import router as dashboard_router
+from app.api.sync import router as sync_router
 
 
 class HealthResponse(BaseModel):
@@ -62,6 +63,7 @@ def create_app(settings: AISettings | None = None) -> FastAPI:
     application.include_router(ai_router, prefix="/api/v1")
     application.include_router(planner_router, prefix="/api/v1")
     application.include_router(dashboard_router, prefix="/api/v1")
+    application.include_router(sync_router, prefix="/api/v1")
 
     # Drive endpoints resolve configuration from app.state (dependency
     # injection friendly) with the global env config as the production default.

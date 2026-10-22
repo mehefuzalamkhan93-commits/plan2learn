@@ -89,3 +89,26 @@ class Exam(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
+
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    device_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    device_name: Mapped[str] = mapped_column(String(150), nullable=False)
+    device_type: Mapped[str] = mapped_column(String(50), nullable=False, default="desktop")
+    ip_address: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+    last_active_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+    user: Mapped["User"] = relationship("User", backref="sessions")
+
