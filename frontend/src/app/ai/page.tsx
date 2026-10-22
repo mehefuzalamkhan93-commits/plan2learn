@@ -90,16 +90,6 @@ export default function AIAssistantPage() {
   const [sourcesOpen, setSourcesOpen] = useState(true);
   const [studioOpen, setStudioOpen] = useState(false);
 
-  // Google Drive OAuth callback lands back on this page (?drive=connected|error).
-  // Open the Sources drawer so the status refresh and result toast are visible.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const drive = new URLSearchParams(window.location.search).get('drive');
-    if (drive === 'connected' || drive === 'error') {
-      setSourcesOpen(true);
-    }
-  }, []);
-
   // Chat profiling updates
   const [profileUpdates, setProfileUpdates] = useState<any>(null);
   const [missingInfo, setMissingInfo] = useState<any>(null);

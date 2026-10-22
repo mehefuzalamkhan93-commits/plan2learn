@@ -114,23 +114,20 @@ export default function PrivacyPolicyPage() {
           {/* Section 3 */}
           <section className="space-y-3 border-t border-zinc-800/60 pt-6">
             <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-              <span className="text-indigo-400 font-mono text-base">03.</span> Google User Data & Drive Integration
+              <span className="text-indigo-400 font-mono text-base">03.</span> Google User Data & Sign-In
             </h2>
             <p>
-              If you choose to authenticate with Google or connect your Google Drive:
+              If you choose to authenticate with Google:
             </p>
             <ul className="list-disc pl-5 space-y-2">
               <li>
-                <strong>Google Sign-In:</strong> We use your Google profile (email, name, avatar) strictly to identify and authenticate your account.
-              </li>
-              <li>
-                <strong>Google Drive Access:</strong> We only access files that you explicitly choose to import into Plan2Learn. We do not scan, browse, or read unrelated documents on your Google Drive.
+                <strong>Google Sign-In:</strong> We use your Google profile (email, name, avatar) strictly to identify and authenticate your account. We never request access to private drive files or personal storage.
               </li>
               <li>
                 <strong>No Third-Party Advertising:</strong> We never share, sell, or license Google user data to data brokers, advertisers, or third-party marketing services.
               </li>
               <li>
-                <strong>No AI Training on Private Data:</strong> Your Google Drive files and private study notes are never used to train public machine learning or foundational AI models.
+                <strong>Privacy by Design:</strong> Your private study notes, roadmap tasks, and learning materials remain confidential and are never used to train public foundational AI models.
               </li>
             </ul>
           </section>

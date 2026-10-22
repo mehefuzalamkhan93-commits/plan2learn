@@ -107,14 +107,14 @@ export default function TermsPage() {
           {/* Section 4 */}
           <section className="space-y-3 border-t border-zinc-800/60 pt-6">
             <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-              <span className="text-indigo-400 font-mono text-base">04.</span> Third-Party Integrations & Google Services
+              <span className="text-indigo-400 font-mono text-base">04.</span> Third-Party Integrations & Google Sign-In
             </h2>
             <p>
-              Plan2Learn offers optional integrations with third-party services, including <strong>Google Sign-In</strong> and <strong>Google Drive</strong>.
+              Plan2Learn offers optional authentication with third-party services, including <strong>Google Sign-In</strong>.
             </p>
             <ul className="list-disc pl-5 space-y-2">
               <li>
-                When you connect your Google Account or select files from Google Drive, you authorize Plan2Learn to access only the specific files or profile information you have granted permission for.
+                When you connect or sign in with your Google Account, you authorize Plan2Learn to access your basic profile information (email address and name) solely to authenticate and secure your account.
               </li>
               <li>
                 <strong>Google Limited Use Compliance:</strong> Plan2Learn&apos;s use and transfer to any other app of information received from Google APIs will adhere to the{' '}

@@ -40,8 +40,8 @@ class AISettings(BaseSettings):
     # YouTube Data API v3
     youtube_api_key: str | None = Field(default=None, repr=False)
 
-    # Google Drive / OAuth 2.0 (backend-managed authorization-code flow)
-    google_drive_enabled: bool = True
+    # Google Drive / OAuth 2.0 (Disabled - Google Sign In & Sign Up only)
+    google_drive_enabled: bool = False
     google_drive_client_id: str | None = None
     google_drive_client_secret: str | None = Field(default=None, repr=False)
     google_drive_redirect_uri: str = "https://plan2learn.onrender.com/api/v1/ai/drive/callback"

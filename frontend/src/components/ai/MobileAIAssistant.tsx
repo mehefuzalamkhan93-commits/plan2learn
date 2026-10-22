@@ -636,7 +636,7 @@ export default function MobileAIAssistant({
       if (sourceFilter === 'notes') return s.source_type === 'note';
       if (sourceFilter === 'youtube') return s.source_type === 'youtube';
       if (sourceFilter === 'pdf') return s.source_type === 'pdf' || s.title?.toLowerCase().endsWith('.pdf');
-      if (sourceFilter === 'web') return s.source_type === 'url' || s.source_type === 'google_drive';
+      if (sourceFilter === 'web') return s.source_type === 'url';
       return true;
     });
   }, [conversationSources, sourceFilter]);
