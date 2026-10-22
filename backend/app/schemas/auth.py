@@ -13,6 +13,10 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class GoogleAuthRequest(BaseModel):
+    credential: str
+
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

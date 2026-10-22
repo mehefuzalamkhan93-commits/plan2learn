@@ -8,6 +8,7 @@ import StudyVideoPanel from '@/components/auth/StudyVideoPanel';
 import { getSafeNextRoute } from '@/lib/authRouting';
 import { authAPI } from '@/services/api';
 import AppLogo from '@/components/ui/AppLogo';
+import GoogleSignInButton from '@/components/auth/GoogleSignInButton';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -85,6 +86,22 @@ export default function LoginPage() {
             <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed">
               Pick up your study plan where you left off.
             </p>
+          </div>
+
+          {/* Google One-Click Authentication */}
+          <div className="mb-5 sm:mb-6">
+            <GoogleSignInButton mode="signin" />
+
+            <div className="relative my-5 sm:my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-zinc-800" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-[#080B14] px-3 text-zinc-500 font-medium tracking-wider">
+                  or continue with email
+                </span>
+              </div>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">

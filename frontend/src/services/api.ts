@@ -159,6 +159,38 @@ export const authAPI = {
     };
   },
 
+  googleLogin: async (credential: string) => {
+    const response = await apiClient.post<any>('/auth/google', { credential });
+    const token =
+      response.data?.data?.access_token ||
+      response.data?.access_token ||
+      (response.data as any)?.token;
+    if (token) {
+      setStoredToken(token);
+    }
+    const rawUser = response.data?.data?.user || response.data?.user || response.data?.data || response.data;
+    const user: AuthenticatedUser = {
+      id: rawUser?.id || '',
+      email: rawUser?.email || '',
+      full_name: rawUser?.full_name || '',
+      is_onboarded: Boolean(rawUser?.is_onboarded),
+      has_student_profile: Boolean(rawUser?.has_student_profile),
+    };
+    return {
+      ...response.data,
+      data: {
+        ...(response.data?.data || {}),
+        user,
+        access_token: token,
+      },
+    };
+  },
+
+  getGoogleAuthConfig: async () => {
+    const response = await apiClient.get<{ client_id: string | null }>('/auth/google/config');
+    return response.data;
+  },
+
   logout: async () => {
     try {
       const response = await apiClient.post<ApiResponse<null>>('/auth/logout');

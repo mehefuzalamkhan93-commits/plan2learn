@@ -1,8 +1,11 @@
+import logging
+import secrets
+import httpx
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.ai.config import get_ai_settings
+from app.ai.config import AISettings, get_ai_settings
 from app.core.security import (
     create_access_token,
     decode_access_token,
@@ -16,11 +19,14 @@ from app.schemas.auth import (
     AuthResponse,
     FullProfileData,
     FullProfileResponse,
+    GoogleAuthRequest,
     LoginRequest,
     ProfileUpdateRequest,
     SignupRequest,
     UserOut,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -156,6 +162,149 @@ def login(
         success=True,
         data=AuthData(user=user_out, access_token=token),
         message="Login successful.",
+    )
+
+
+async def verify_google_credential(credential: str, expected_client_id: str | None = None) -> dict:
+    """Verifies a Google ID token with Google's tokeninfo API.
+    Returns dict with email, name, sub, picture.
+    """
+    tokeninfo_url = f"https://oauth2.googleapis.com/tokeninfo?id_token={credential}"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(tokeninfo_url)
+            if resp.status_code != 200:
+                logger.warning("Google tokeninfo rejected token: %s", resp.text)
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid or expired Google authentication credential.",
+                )
+            data = resp.json()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Failed to connect to Google tokeninfo: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Unable to verify Google credential with Google authentication servers.",
+        ) from exc
+
+    token_aud = data.get("aud")
+    if expected_client_id and token_aud != expected_client_id:
+        logger.warning("Google token aud mismatch: token aud %s != expected %s", token_aud, expected_client_id)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Google authentication token was issued for an unauthorized client ID.",
+        )
+
+    email = data.get("email")
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google account did not provide an email address.",
+        )
+
+    email_verified = str(data.get("email_verified", "")).lower() == "true"
+    if not email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google account email is not verified.",
+        )
+
+    return {
+        "email": email.lower(),
+        "name": data.get("name") or email.split("@")[0],
+        "sub": data.get("sub"),
+        "picture": data.get("picture"),
+    }
+
+
+@router.get("/google/config")
+def google_auth_config(settings: AISettings = Depends(get_ai_settings)) -> dict[str, str | None]:
+    return {"client_id": settings.google_drive_client_id}
+
+
+@router.post("/google", response_model=AuthResponse)
+async def google_auth(
+    payload: GoogleAuthRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+    settings: AISettings = Depends(get_ai_settings),
+) -> AuthResponse:
+    google_user = await verify_google_credential(
+        payload.credential,
+        expected_client_id=settings.google_drive_client_id,
+    )
+    email = google_user["email"]
+    name = google_user["name"]
+
+    user = db.query(User).filter(User.email == email).first()
+    is_new_user = False
+
+    if not user:
+        is_new_user = True
+        dummy_password = secrets.token_urlsafe(32)
+        hashed = hash_password(dummy_password)
+        user = User(
+            email=email,
+            hashed_password=hashed,
+            full_name=name,
+            is_active=True,
+            is_onboarded=False,
+        )
+        db.add(user)
+        db.flush()
+
+        default_profile = StudentProfile(
+            user_id=user.id,
+            education_level="High School",
+            board_curriculum="General",
+            grade_class="Grade 12",
+            target_subjects=["Physics", "Mathematics", "Chemistry"],
+            weak_topics=[],
+            strong_topics=[],
+            daily_time_minutes=180,
+            score_goal=85,
+        )
+        db.add(default_profile)
+        db.commit()
+        db.refresh(user)
+    else:
+        if not user.is_active:
+            user.is_active = True
+            db.commit()
+            db.refresh(user)
+        if user.profile is None:
+            default_profile = StudentProfile(
+                user_id=user.id,
+                education_level="High School",
+                board_curriculum="General",
+                grade_class="Grade 12",
+                target_subjects=["Physics", "Mathematics", "Chemistry"],
+                weak_topics=[],
+                strong_topics=[],
+                daily_time_minutes=180,
+                score_goal=85,
+            )
+            db.add(default_profile)
+            db.commit()
+            db.refresh(user)
+
+    token = create_access_token(data={"sub": user.id})
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        samesite="none" if settings.app_env.lower() != "development" else "lax",
+        secure=settings.app_env.lower() != "development",
+        max_age=7 * 24 * 3600,
+    )
+
+    user_out = UserOut.model_validate(user)
+    return AuthResponse(
+        success=True,
+        data=AuthData(user=user_out, access_token=token),
+        message="Google account created successfully." if is_new_user else "Google sign-in successful.",
     )
 
 
