@@ -100,7 +100,14 @@ def drive_client(client_factory):
 
 @pytest.fixture
 def disabled_client(client_factory):
-    return client_factory(AISettings(_env_file=None))
+    return client_factory(
+        AISettings(
+            _env_file=None,
+            google_drive_enabled=False,
+            google_drive_client_id=None,
+            google_drive_client_secret=None,
+        )
+    )
 
 
 def signup_user(client: SyncASGITestClient, email: str = "drive_user@example.com") -> User:
@@ -214,6 +221,7 @@ def test_connect_blocked_when_disabled(client_factory) -> None:
     client = client_factory(
         AISettings(
             _env_file=None,
+            google_drive_enabled=False,
             google_drive_client_id="id",
             google_drive_client_secret="secret",
         )
