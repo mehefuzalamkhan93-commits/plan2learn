@@ -19,7 +19,7 @@ export function useDeviceSync() {
   const fetchDashboardSummary = usePlannerStore((state) => state.fetchDashboardSummary);
 
   const performSync = useCallback(async () => {
-    if (!user || isEvictedRef.current) return;
+    if (!user || !user.is_onboarded || isEvictedRef.current) return;
 
     try {
       setIsSyncing(true);
@@ -50,7 +50,7 @@ export function useDeviceSync() {
   }, [user, router, fetchDashboardSummary]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !user.is_onboarded) return;
 
     // 1. Initial sync
     performSync();
