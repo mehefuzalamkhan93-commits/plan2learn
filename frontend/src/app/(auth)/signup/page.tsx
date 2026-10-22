@@ -1,11 +1,13 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { LoaderCircle, Sparkles, UserRound, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { LoaderCircle, Sparkles, UserRound, Mail, Lock, Eye, EyeOff, ArrowRight, LogIn, AlertCircle } from 'lucide-react';
 import StudyVideoPanel from '@/components/auth/StudyVideoPanel';
 import { authAPI } from '@/services/api';
+import { useAuth } from '@/hooks/useAuth';
+import { getFirstAuthenticatedRoute } from '@/lib/authRouting';
 import AppLogo from '@/components/ui/AppLogo';
 import GoogleSignInButton from '@/components/auth/GoogleSignInButton';
 import OTPVerificationForm from '@/components/auth/OTPVerificationForm';
@@ -14,6 +16,7 @@ import { useSplash } from '@/context/SplashContext';
 export default function SignupPage() {
   const router = useRouter();
   const { triggerSplash } = useSplash();
+  const { user, status, setUser, refresh } = useAuth();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,9 +32,33 @@ export default function SignupPage() {
     resendCooldownSeconds?: number;
   } | null>(null);
 
+  // Auto pre-fill email if passed in query string (e.g. from /login)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const queryEmail = params.get('email');
+      if (queryEmail && !email) {
+        setEmail(queryEmail);
+      }
+    }
+  }, [email]);
+
+  // Session restoration: if already authenticated, redirect straight to dashboard
+  useEffect(() => {
+    if (status === 'authenticated' && user) {
+      const targetRoute = getFirstAuthenticatedRoute(user);
+      router.replace(targetRoute);
+    }
+  }, [status, user, router]);
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError('Passwords do not match.');
@@ -69,9 +96,24 @@ export default function SignupPage() {
     }
   };
 
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#080B14] text-zinc-300 gap-3">
+        <LoaderCircle className="h-8 w-8 animate-spin text-indigo-500" />
+        <span className="text-sm font-medium text-zinc-400">Checking your session…</span>
+      </div>
+    );
+  }
+
+  if (status === 'authenticated') {
+    return null;
+  }
+
+  const isExistingAccount = error && (error.toLowerCase().includes('already exists') || error.toLowerCase().includes('log in instead'));
+
   return (
     <div className="min-h-screen w-full flex flex-col lg:flex-row bg-[#080B14] text-zinc-100 selection:bg-indigo-500/30 selection:text-white">
-      {/* Left Column: Video & Brand Showcase (Desktop: 52% full-bleed height; Mobile: compact 180px-220px hero banner) */}
+      {/* Left Column: Video & Brand Showcase */}
       <div className="relative w-full lg:w-1/2 xl:w-[52%] h-[180px] sm:h-[220px] lg:h-auto lg:min-h-screen bg-black overflow-hidden flex flex-col justify-between p-5 sm:p-8 lg:p-12 shrink-0">
         <StudyVideoPanel variant="signup" className="h-full w-full object-cover" />
         
@@ -83,14 +125,13 @@ export default function SignupPage() {
           <AppLogo size="md" priority />
           <div>
             <span className="text-sm sm:text-base font-bold tracking-tight text-white">Plan2Learn</span>
-
             <span className="hidden sm:inline-block ml-2 rounded-full bg-indigo-500/20 px-2 py-0.5 text-[11px] font-medium text-indigo-300 border border-indigo-500/30">
               AI-Powered
             </span>
           </div>
         </div>
 
-        {/* Bottom Motivational Quote Card (Desktop only, untouched for PC) */}
+        {/* Bottom Motivational Quote Card (Desktop only) */}
         <div className="relative z-20 hidden lg:block max-w-lg">
           <div className="rounded-2xl border border-white/10 bg-black/50 p-6 backdrop-blur-xl shadow-2xl">
             <div className="flex items-center gap-2 mb-2.5 text-indigo-300 text-xs font-semibold uppercase tracking-wider">
@@ -98,49 +139,63 @@ export default function SignupPage() {
               Knowledge &amp; Growth
             </div>
             <p className="text-sm sm:text-base font-medium text-zinc-100 leading-relaxed italic">
-              &ldquo;The capacity to learn is a gift; the ability to learn is a skill; the willingness to learn is a choice.&rdquo;
+              &ldquo;An investment in knowledge pays the best interest.&rdquo;
             </p>
-            <div className="mt-4 flex items-center justify-between text-xs text-zinc-400 border-t border-white/10 pt-3">
-              <span className="text-zinc-300 font-medium">— Brian Herbert</span>
-              <span className="text-emerald-400 font-medium flex items-center gap-1">✦ Start your journey</span>
+            <div className="mt-3 flex items-center justify-between text-xs text-zinc-400">
+              <span>— Benjamin Franklin</span>
+              <span className="text-indigo-400 font-medium flex items-center gap-1">
+                <span>✦</span> Start learning today
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Right Column: Auth Form Container (Responsive padding & smooth scroll for mobile, untouched on PC) */}
-      <div className="relative w-full lg:w-1/2 xl:w-[48%] flex-1 flex flex-col justify-center items-center px-5 sm:px-10 lg:p-16 lg:overflow-y-auto bg-[#080B14]">
-        <div className="w-full max-w-[420px] mx-auto z-10 pt-4 pb-8 sm:py-6 lg:py-6">
+      {/* Right Column: Auth Form */}
+      <div className="relative w-full lg:w-1/2 xl:w-[48%] flex-1 flex flex-col justify-center px-5 py-6 sm:px-8 sm:py-10 md:px-12 lg:px-14 xl:px-20 z-20">
+        <div className="mx-auto w-full max-w-md">
           {otpChallenge ? (
             <OTPVerificationForm
               challengeId={otpChallenge.challengeId}
               maskedEmail={otpChallenge.maskedEmail}
               expiresInSeconds={otpChallenge.expiresInSeconds}
               resendCooldownSeconds={otpChallenge.resendCooldownSeconds}
-              onBackToLogin={() => setOtpChallenge(null)}
+              onBackToLogin={() => {
+                setOtpChallenge(null);
+                setError(null);
+              }}
+              onSuccess={(verifiedUser) => {
+                setUser(verifiedUser);
+              }}
             />
           ) : (
             <>
-              <div className="mb-5 sm:mb-8">
+              {/* Header */}
+              <div className="mb-4 sm:mb-6 text-center sm:text-left">
                 <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
                   Create your account
                 </h1>
-                <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed">
-                  Start with the essentials. We&apos;ll shape your study plan together next.
+                <p className="mt-1 sm:mt-1.5 text-xs sm:text-sm text-zinc-400">
+                  Build your personalized AI study roadmap in minutes.
                 </p>
               </div>
 
-              {/* Google One-Click Authentication */}
-              <div className="mb-5 sm:mb-6">
-                <GoogleSignInButton mode="signup" />
+              {/* Google Sign-in */}
+              <div className="mb-4 sm:mb-5">
+                <GoogleSignInButton
+                  onSuccess={() => {
+                    refresh();
+                  }}
+                  onError={(message) => setError(message)}
+                />
 
                 <div className="relative my-4 sm:my-5">
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-zinc-800" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-[#080B14] px-3 text-zinc-500 font-medium tracking-wider">
-                      or continue with email
+                    <span className="bg-[#080B14] px-3 text-zinc-500 tracking-wider font-medium text-[11px]">
+                      or sign up with email
                     </span>
                   </div>
                 </div>
@@ -154,11 +209,10 @@ export default function SignupPage() {
                   <div className="relative">
                     <UserRound className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                     <input
+                      type="text"
                       autoComplete="name"
                       required
-                      minLength={2}
-                      maxLength={100}
-                      placeholder="Alex Johnson"
+                      placeholder="Jane Doe"
                       value={fullName}
                       onChange={(event) => setFullName(event.target.value)}
                       className="w-full rounded-xl border border-zinc-800 bg-[#0E121E] pl-10 pr-4 py-2.5 sm:py-3 text-base sm:text-sm text-zinc-100 placeholder-zinc-500 transition-colors focus:border-indigo-500 focus:bg-[#121727] focus:outline-none focus:ring-1 focus:ring-indigo-500"
@@ -186,7 +240,7 @@ export default function SignupPage() {
 
                 <div>
                   <label className="block text-xs font-medium text-zinc-300 mb-1 sm:mb-1.5">
-                    Password
+                    Password <span className="text-zinc-500 font-normal">(min. 8 characters)</span>
                   </label>
                   <div className="relative">
                     <Lock className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
@@ -236,11 +290,30 @@ export default function SignupPage() {
                   </div>
                 </div>
 
-                {error && (
-                  <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-2.5 text-sm text-rose-300">
-                    {error}
+                {/* Error handling: Distinct Existing Account Guidance vs Generic Error */}
+                {isExistingAccount ? (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200 flex flex-col gap-2.5">
+                    <div className="flex items-center gap-2 font-semibold text-amber-100">
+                      <AlertCircle className="h-4 w-4 text-amber-400 shrink-0" />
+                      <span>An account with this email already exists</span>
+                    </div>
+                    <p className="text-xs text-amber-200/80 leading-relaxed">
+                      Please log in to your existing Plan2Learn account with this email.
+                    </p>
+                    <Link
+                      href={`/login?email=${encodeURIComponent(email.trim())}`}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 px-4 py-2 text-xs font-semibold text-amber-100 transition-all w-fit"
+                    >
+                      <LogIn className="h-3.5 w-3.5" />
+                      <span>Go to Log in</span>
+                    </Link>
                   </div>
-                )}
+                ) : error ? (
+                  <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-2.5 text-sm text-rose-300 flex items-start gap-2.5">
+                    <AlertCircle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+                    <div className="flex-1">{error}</div>
+                  </div>
+                ) : null}
 
                 <button
                   type="submit"
@@ -264,7 +337,7 @@ export default function SignupPage() {
               <div className="mt-5 sm:mt-6 text-center text-xs sm:text-sm text-zinc-400">
                 Already have an account?{' '}
                 <Link
-                  href="/login"
+                  href={`/login${email.trim() ? `?email=${encodeURIComponent(email.trim())}` : ''}`}
                   className="font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
                 >
                   Log in

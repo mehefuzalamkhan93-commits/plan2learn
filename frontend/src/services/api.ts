@@ -242,6 +242,30 @@ export const authAPI = {
     }
   },
 
+  forgotPassword: async (email: string) => {
+    const response = await apiClient.post<any>('/auth/forgot-password', { email });
+    return response.data;
+  },
+
+  verifyResetOTP: async (challenge_id: string, otp: string) => {
+    const response = await apiClient.post<any>('/auth/verify-reset-otp', { challenge_id, otp });
+    return response.data;
+  },
+
+  resetPassword: async (reset_token: string, new_password: string, confirm_password: string) => {
+    const response = await apiClient.post<any>('/auth/reset-password', {
+      reset_token,
+      new_password,
+      confirm_password,
+    });
+    return response.data;
+  },
+
+  resendResetOTP: async (challenge_id: string) => {
+    const response = await apiClient.post<any>('/auth/resend-otp', { challenge_id });
+    return response.data;
+  },
+
   getCurrentUser: async () => {
     const response = await apiClient.get<any>('/auth/me');
     const rawUser = response.data?.data?.user || response.data?.user || response.data?.data || response.data;

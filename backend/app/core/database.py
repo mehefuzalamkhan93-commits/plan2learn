@@ -23,6 +23,9 @@ BACKEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."
 DEFAULT_DB_PATH = os.path.join(BACKEND_DIR, "smart_planner.db").replace("\\", "/")
 
 DATABASE_BACKEND = os.getenv("DATABASE_BACKEND", "").lower().strip()
+if not DATABASE_BACKEND and ("pytest" in sys.modules or os.getenv("PYTEST_CURRENT_TEST")):
+    DATABASE_BACKEND = "sqlite"
+
 TURSO_DATABASE_URL = os.getenv("TURSO_DATABASE_URL", "").strip()
 TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "").strip()
 

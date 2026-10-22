@@ -107,8 +107,8 @@ def test_signup_duplicate_email_does_not_reveal_account_existence(client_and_db)
     with patch("app.api.auth.send_otp_email", new_callable=AsyncMock):
         client.post("/api/v1/auth/signup", json=payload)
         response = client.post("/api/v1/auth/signup", json=payload)
-        assert response.status_code == 400
-        assert response.json()["detail"] == "Unable to create an account with the provided details."
+        assert response.status_code == 409
+        assert "An account with this email already exists" in response.json()["detail"]
 
 
 def test_login_success_and_me_endpoint(client_and_db):

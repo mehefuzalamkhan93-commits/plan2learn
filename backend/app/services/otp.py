@@ -126,9 +126,10 @@ def verify_otp_challenge(
     db: Session,
     challenge_id: str,
     otp_code: str,
+    expected_purpose: str | list[str] | tuple[str, ...] | None = None,
 ) -> OTPChallenge:
     """Verify an OTP code against a challenge.
-    Enforces expiry, max attempts, single-use, and constant-time hash check.
+    Enforces expiry, max attempts, single-use, purpose binding, and constant-time hash check.
     """
     challenge = db.query(OTPChallenge).filter(OTPChallenge.id == challenge_id).first()
     if not challenge or challenge.is_used:
@@ -136,6 +137,14 @@ def verify_otp_challenge(
             "This verification request is invalid or has already been completed.",
             code="challenge_invalid",
         )
+
+    if expected_purpose:
+        allowed = (expected_purpose,) if isinstance(expected_purpose, str) else tuple(expected_purpose)
+        if challenge.purpose not in allowed:
+            raise OTPVerificationError(
+                "This verification request is invalid or intended for a different purpose.",
+                code="purpose_mismatch",
+            )
 
     now = datetime.now(timezone.utc)
     if now > _ensure_utc(challenge.expires_at):

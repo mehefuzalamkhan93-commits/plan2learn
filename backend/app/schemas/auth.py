@@ -59,6 +59,31 @@ class AuthResponse(BaseModel):
     message: str = ""
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class VerifyResetOTPRequest(BaseModel):
+    challenge_id: str = Field(..., min_length=1)
+    otp: str = Field(..., min_length=6, max_length=6)
+
+
+class ResetPasswordRequest(BaseModel):
+    reset_token: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=8)
+    confirm_password: str = Field(..., min_length=8)
+
+
+class PasswordResetResponse(BaseModel):
+    success: bool
+    message: str
+    challenge_id: str | None = None
+    reset_token: str | None = None
+    masked_email: str | None = None
+    expires_in_seconds: int | None = None
+    resend_cooldown_seconds: int | None = None
+
+
 class ProfileUpdateRequest(BaseModel):
     full_name: str | None = None
     education_level: str | None = None

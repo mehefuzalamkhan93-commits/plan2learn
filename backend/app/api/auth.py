@@ -1,8 +1,10 @@
+from datetime import timedelta
 from typing import Any
 import logging
 import secrets
 import httpx
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -23,18 +25,22 @@ from app.schemas.auth import (
     AuthResponse,
     DeviceSessionOut,
     DevicesResponse,
+    ForgotPasswordRequest,
     FullProfileData,
     FullProfileResponse,
     GoogleAuthRequest,
     LoginRequest,
     OTPChallengeData,
+    PasswordResetResponse,
     ProfileUpdateRequest,
     ResendOTPRequest,
+    ResetPasswordRequest,
     SignupRequest,
     UserOut,
     VerifyOTPRequest,
+    VerifyResetOTPRequest,
 )
-from app.services.email import EmailDeliveryError, send_otp_email
+from app.services.email import EmailDeliveryError, send_otp_email, send_password_reset_email
 from app.services.otp import (
     OTPVerificationError,
     create_otp_challenge,
@@ -98,29 +104,43 @@ async def signup(
     db: Session = Depends(get_db),
     settings: AISettings = Depends(get_ai_settings),
 ) -> AuthResponse:
+    email = payload.email.strip().lower()
     if payload.password != payload.confirm_password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Passwords do not match",
         )
 
-    existing = db.query(User).filter(User.email == payload.email.lower()).first()
-    if existing:
+    if len(payload.password) < 8:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Unable to create an account with the provided details.",
+            detail="Password must be at least 8 characters long",
+        )
+
+    existing = db.query(User).filter(User.email == email).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An account with this email already exists. Please log in instead.",
         )
 
     hashed = hash_password(payload.password)
     user = User(
-        email=payload.email.lower(),
+        email=email,
         hashed_password=hashed,
-        full_name=payload.full_name,
+        full_name=payload.full_name.strip(),
         is_active=True,
         is_onboarded=False,
     )
     db.add(user)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An account with this email already exists. Please log in instead.",
+        )
 
     default_profile = StudentProfile(
         user_id=user.id,
@@ -191,11 +211,18 @@ async def login(
     db: Session = Depends(get_db),
     settings: AISettings = Depends(get_ai_settings),
 ) -> AuthResponse:
-    user = db.query(User).filter(User.email == payload.email.lower()).first()
-    if not user or not verify_password(payload.password, user.hashed_password):
+    email = payload.email.strip().lower()
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account found with this email. Please sign up to create an account.",
+        )
+
+    if not verify_password(payload.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
+            detail="Incorrect password. Please try again or reset your password.",
         )
 
     if not user.is_active:
@@ -257,7 +284,12 @@ def verify_otp(
     settings: AISettings = Depends(get_ai_settings),
 ) -> AuthResponse:
     try:
-        challenge = verify_otp_challenge(db, payload.challenge_id, payload.otp)
+        challenge = verify_otp_challenge(
+            db,
+            payload.challenge_id,
+            payload.otp,
+            expected_purpose=("login", "signup"),
+        )
     except OTPVerificationError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -348,6 +380,155 @@ async def resend_otp(
             resend_cooldown_seconds=cooldown_seconds,
         ),
         message=f"A fresh 6-digit verification code was sent to {masked}.",
+    )
+
+
+@router.post("/forgot-password", response_model=PasswordResetResponse)
+async def forgot_password(
+    payload: ForgotPasswordRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    settings: AISettings = Depends(get_ai_settings),
+) -> PasswordResetResponse:
+    email = payload.email.strip().lower()
+    user = db.query(User).filter(User.email == email).first()
+
+    # Generic protection: never reveal whether account exists to prevent email harvesting
+    generic_msg = "If an account exists with this email address, a 6-digit verification code has been sent."
+
+    if not user or not user.is_active:
+        return PasswordResetResponse(
+            success=True,
+            message=generic_msg,
+        )
+
+    device_info = extract_device_info(request)
+    challenge, plain_otp = create_otp_challenge(
+        db,
+        user=user,
+        purpose="password_reset",
+        device_info=device_info,
+        settings=settings,
+    )
+
+    try:
+        await send_password_reset_email(
+            to_email=user.email,
+            otp_code=plain_otp,
+            user_name=user.full_name,
+            settings=settings,
+        )
+    except EmailDeliveryError as exc:
+        db.rollback()
+        logger.error("Failed to send password reset email to %s: %s", user.email, exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Unable to send password reset email: {exc.message}",
+        )
+
+    masked = mask_email(user.email)
+    return PasswordResetResponse(
+        success=True,
+        challenge_id=challenge.id,
+        masked_email=masked,
+        expires_in_seconds=settings.otp_expire_minutes * 60,
+        resend_cooldown_seconds=settings.otp_resend_cooldown_seconds,
+        message=f"A 6-digit password reset code has been sent to {masked}.",
+    )
+
+
+@router.post("/verify-reset-otp", response_model=PasswordResetResponse)
+def verify_reset_otp(
+    payload: VerifyResetOTPRequest,
+    db: Session = Depends(get_db),
+    settings: AISettings = Depends(get_ai_settings),
+) -> PasswordResetResponse:
+    try:
+        challenge = verify_otp_challenge(
+            db,
+            payload.challenge_id,
+            payload.otp,
+            expected_purpose="password_reset",
+        )
+    except OTPVerificationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=exc.message,
+        )
+
+    # Transition purpose to verified state for password reset
+    challenge.purpose = "password_reset_verified"
+    db.commit()
+
+    # Issue single-use reset token valid for 10 minutes
+    reset_token = create_access_token(
+        data={"sub": challenge.user_id, "cid": challenge.id, "purpose": "pwd_reset"},
+        expires_delta=timedelta(minutes=10),
+    )
+
+    return PasswordResetResponse(
+        success=True,
+        reset_token=reset_token,
+        message="Verification successful. Please choose your new password.",
+    )
+
+
+@router.post("/reset-password", response_model=PasswordResetResponse)
+def reset_password(
+    payload: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+) -> PasswordResetResponse:
+    if payload.new_password != payload.confirm_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Passwords do not match.",
+        )
+
+    if len(payload.new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters long.",
+        )
+
+    token_data = decode_access_token(payload.reset_token)
+    if not token_data or token_data.get("purpose") != "pwd_reset":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password reset session is invalid or has expired. Please request a new code.",
+        )
+
+    user_id = token_data.get("sub")
+    challenge_id = token_data.get("cid")
+
+    challenge = db.query(OTPChallenge).filter(OTPChallenge.id == challenge_id).first()
+    if not challenge or challenge.purpose != "password_reset_verified":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This reset link has already been used or is no longer valid.",
+        )
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Account not found or inactive.",
+        )
+
+    # Invalidate challenge immediately (single-use)
+    challenge.purpose = "password_reset_completed"
+    challenge.is_used = True
+
+    # Update password hash
+    user.hashed_password = hash_password(payload.new_password)
+
+    # Invalidate all active sessions for security
+    db.query(UserSession).filter(UserSession.user_id == user.id).update({"is_active": False})
+
+    db.commit()
+
+    return PasswordResetResponse(
+        success=True,
+        message="Your password has been reset successfully. Please log in with your new password.",
     )
 
 

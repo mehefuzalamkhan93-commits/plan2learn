@@ -62,7 +62,9 @@ def dashboard_client() -> SyncASGITestClient:
 
     app = create_app(AISettings(_env_file=None))
     app.dependency_overrides[get_db] = override_get_db
-    return SyncASGITestClient(app)
+    client = SyncASGITestClient(app)
+    client.session_factory = testing_session
+    return client
 
 
 def signup(client: SyncASGITestClient, email: str) -> None:
@@ -76,6 +78,12 @@ def signup(client: SyncASGITestClient, email: str) -> None:
         },
     )
     assert response.status_code == 201
+    with client.session_factory() as db:
+        user = db.query(User).filter(User.email == email).first()
+        from app.core.security import create_access_token, register_or_rotate_session
+        session = register_or_rotate_session(db, user.id, device_id="test-device", device_name="Test Device", device_type="desktop")
+        token = create_access_token({"sub": user.id, "sid": session.id})
+        client.cookies["access_token"] = token
 
 
 def complete_onboarding(client: SyncASGITestClient) -> None:
