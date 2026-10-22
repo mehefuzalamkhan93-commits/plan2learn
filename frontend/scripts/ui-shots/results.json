@@ -1,0 +1,122 @@
+[
+  {
+    "name": "login ok (light)",
+    "ok": true,
+    "detail": "http://localhost:3000/ai"
+  },
+  {
+    "name": "dashboard html theme (light)",
+    "ok": true,
+    "detail": "data-theme=light, html=\"light\""
+  },
+  {
+    "name": "roadmap panel surface (light)",
+    "ok": true,
+    "detail": "bg=rgb(255, 255, 255), h2=rgb(15, 23, 42), p=rgb(71, 85, 105), wrapperOpacity=1"
+  },
+  {
+    "name": "roadmap no washed-out overlay (light)",
+    "ok": true,
+    "detail": "opacity=1, filter=none"
+  },
+  {
+    "name": "intel panel surface (light)",
+    "ok": true,
+    "detail": "bg=rgb(255, 255, 255), h2=rgb(15, 23, 42), p=rgb(71, 85, 105)"
+  },
+  {
+    "name": "intel inner cards (light)",
+    "ok": true,
+    "detail": "[{\"bg\":\"rgb(248, 250, 252)\",\"text\":\"rgb(15, 23, 42)\"},{\"bg\":\"rgb(248, 250, 252)\",\"text\":\"rgb(15, 23, 42)\"},{\"bg\":\"rgb(248, 250, 252)\",\"text\":\"rgb(15, 23, 42)\"}]"
+  },
+  {
+    "name": "settings modal fits viewport (light)",
+    "ok": true,
+    "detail": "rect={\"top\":24,\"bottom\":842,\"height\":818,\"vh\":850}, esc? bodyOverflow=hidden"
+  },
+  {
+    "name": "settings modal background locked (light)",
+    "ok": true,
+    "detail": "body overflow=hidden"
+  },
+  {
+    "name": "settings modal scrolls independently on small viewport (light)",
+    "ok": true,
+    "detail": "overflowY=auto, scrollHeight/clientHeight=905/333, rect={\"top\":24,\"bottom\":542,\"height\":518,\"vh\":550}"
+  },
+  {
+    "name": "subject add + case-insensitive dup handling (light)",
+    "ok": true,
+    "detail": "dupNotice=true"
+  },
+  {
+    "name": "subject persists after save+reload (light)",
+    "ok": true,
+    "detail": "Target Subjects:Physics, Bengali, Computer Applications"
+  },
+  {
+    "name": "theme switch without reload (light)",
+    "ok": true,
+    "detail": "now=dark"
+  },
+  {
+    "name": "login ok (dark)",
+    "ok": true,
+    "detail": "http://localhost:3000/ai"
+  },
+  {
+    "name": "dashboard html theme (dark)",
+    "ok": true,
+    "detail": "data-theme=dark, html=\"dark\""
+  },
+  {
+    "name": "roadmap panel surface (dark)",
+    "ok": true,
+    "detail": "bg=rgba(24, 24, 27, 0.4), h2=rgb(255, 255, 255), p=rgb(161, 161, 170), wrapperOpacity=1"
+  },
+  {
+    "name": "roadmap no washed-out overlay (dark)",
+    "ok": true,
+    "detail": "opacity=1, filter=none"
+  },
+  {
+    "name": "intel panel surface (dark)",
+    "ok": true,
+    "detail": "bg=rgba(24, 24, 27, 0.4), h2=rgb(255, 255, 255), p=rgb(161, 161, 170)"
+  },
+  {
+    "name": "intel inner cards (dark)",
+    "ok": true,
+    "detail": "[{\"bg\":\"rgba(24, 24, 27, 0.6)\",\"text\":\"rgb(244, 244, 245)\"},{\"bg\":\"rgba(24, 24, 27, 0.6)\",\"text\":\"rgb(244, 244, 245)\"},{\"bg\":\"rgba(24, 24, 27, 0.6)\",\"text\":\"rgb(244, 244, 245)\"}]"
+  },
+  {
+    "name": "settings modal fits viewport (dark)",
+    "ok": true,
+    "detail": "rect={\"top\":24,\"bottom\":842,\"height\":818,\"vh\":850}, esc? bodyOverflow=hidden"
+  },
+  {
+    "name": "settings modal background locked (dark)",
+    "ok": true,
+    "detail": "body overflow=hidden"
+  },
+  {
+    "name": "settings modal scrolls independently on small viewport (dark)",
+    "ok": true,
+    "detail": "overflowY=auto, scrollHeight/clientHeight=905/333, rect={\"top\":24,\"bottom\":542,\"height\":518,\"vh\":550}"
+  },
+  {
+    "name": "subject add + case-insensitive dup handling (dark)",
+    "ok": true,
+    "detail": "dupNotice=true"
+  },
+  {
+    "name": "subject persists after save+reload (dark)",
+    "ok": true,
+    "detail": "Target Subjects:Bengali, Computer Applications"
+  },
+  {
+    "name": "theme switch without reload (dark)",
+    "ok": true,
+    "detail": "now=light"
+  }
+]

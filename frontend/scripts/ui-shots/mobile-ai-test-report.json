@@ -1,0 +1,150 @@
+{
+  "startScreen": {
+    "heading": "AI Assistant",
+    "heroTitle": "How can I help you with your studies?",
+    "suggestions": [
+      "Explain a concept",
+      "Solve a problem",
+      "Plan my study",
+      "Summarize content",
+      "Why Does This Happen?",
+      "Take‑away Thought"
+    ],
+    "hasBottomNav": true,
+    "activeNav": "AI"
+  },
+  "chatView": {
+    "userText": "Explain electromagnetic induction in simple words with real-world examples.",
+    "avatarsFound": 0,
+    "botPreview": "Electromagnetic Induction – What It Is, in Plain English\nIdea\tWhat it really means\tEveryday picture\n",
+    "hasCopyBtn": true,
+    "hasThumbsUp": true,
+    "hasThumbsDown": true,
+    "hasSaveNote": true,
+    "quickActionPills": [
+      "Sources (3)",
+      "Summarize",
+      "Create Notes",
+      "Home",
+      "",
+      "Planner",
+      "",
+      "AI",
+      "",
+      "Focus",
+      "",
+      "More",
+      "",
+      "File",
+      "URL",
+      "Folder",
+      "YouTube Search",
+      "YouTube Search",
+      "Google DriveDisabled",
+      "Google Drive",
+      "Disabled",
+      "Explain",
+      "Summarize",
+      "Revision Notes",
+      "Generate MCQs",
+      "Practice Qs",
+      "Weak Areas",
+      "Routine Plan",
+      "High-Yield",
+      "Generate 14-Day Study Plan"
+    ]
+  },
+  "sourcesDrawer": {
+    "title": "Sources",
+    "filterPills": [
+      "Sources (4)",
+      "Summarize",
+      "Create Notes",
+      "",
+      "",
+      "All",
+      "Notes",
+      "Youtube",
+      "Pdf",
+      "Web",
+      "📋 Plan Project",
+      "💡 Explain Concept",
+      "✍️ Write & Edit",
+      "Explain with citations",
+      "Summarize study materials",
+      "Test with 5 MCQs",
+      "Build 14-Day Plan"
+    ],
+    "sourceCount": 4,
+    "sourceTitles": [
+      "Electromagnetic Induction – W",
+      "Electromagnetic Induction – W",
+      "Electromagnetic Induction – W",
+      "Electromagnetic Induction – A"
+    ],
+    "checkboxes": 5,
+    "returnedToChat": true
+  },
+  "lightMode": {},
+  "viewports": [
+    {
+      "width": 320,
+      "maxW": 320,
+      "winW": 320,
+      "hasOverflow": false,
+      "shot": "mobile-ai-dark-320px.png"
+    },
+    {
+      "width": 360,
+      "maxW": 360,
+      "winW": 360,
+      "hasOverflow": false,
+      "shot": "mobile-ai-dark-360px.png"
+    },
+    {
+      "width": 375,
+      "maxW": 375,
+      "winW": 375,
+      "hasOverflow": false,
+      "shot": "mobile-ai-dark-375px.png"
+    },
+    {
+      "width": 390,
+      "maxW": 390,
+      "winW": 390,
+      "hasOverflow": false,
+      "shot": "mobile-ai-dark-390px.png"
+    },
+    {
+      "width": 412,
+      "maxW": 412,
+      "winW": 412,
+      "hasOverflow": false,
+      "shot": "mobile-ai-dark-412px.png"
+    },
+    {
+      "width": 430,
+      "maxW": 430,
+      "winW": 430,
+      "hasOverflow": false,
+      "shot": "mobile-ai-dark-430px.png"
+    },
+    {
+      "width": 480,
+      "maxW": 480,
+      "winW": 480,
+      "hasOverflow": false,
+      "shot": "mobile-ai-dark-480px.png"
+    }
+  ],
+  "desktopPreservation": {
+    "hasDesktopSourcesBtn": true,
+    "hasDesktopStudioBtn": true,
+    "hasDesktopTabs": [
+      "Notebook",
+      "Roadmap",
+      "Intel"
+    ],
+    "isMobileNavHidden": true
+  }
+}

@@ -1,0 +1,38 @@
+# Environment / secrets — never commit credentials or tokens
+.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env*
+
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+backend/.venv/
+backend/uploads/
+*.db
+
+
+# Node / Next.js
+node_modules/
+.next/
+.next-dev/
+frontend/.next/
+frontend/.next-dev/
+frontend/node_modules/
+out/
+
+tsconfig.tsbuildinfo
+next-env.d.ts
+
+# Logs
+*.log
+dev-server.log
+uvicorn.out.log
+uvicorn.err.log
+
+# OS junk
+.DS_Store
+Thumbs.db

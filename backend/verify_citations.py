@@ -1,0 +1,10 @@
+import sqlite3
+conn = sqlite3.connect('smart_planner.db')
+cursor = conn.cursor()
+cursor.execute("SELECT sql FROM sqlite_master WHERE sql IS NOT NULL AND name='ai_messages'")
+row = cursor.fetchone()
+print('ai_messages schema:', row[0] if row else 'NOT FOUND')
+cursor.execute('PRAGMA table_info(ai_messages)')
+columns = cursor.fetchall()
+print('Columns:', [c[1] for c in columns])
+conn.close()

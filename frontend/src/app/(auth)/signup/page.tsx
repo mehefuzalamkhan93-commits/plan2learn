@@ -1,0 +1,230 @@
+'use client';
+
+import { FormEvent, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { LoaderCircle, Sparkles, UserRound, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import StudyVideoPanel from '@/components/auth/StudyVideoPanel';
+import { authAPI } from '@/services/api';
+
+export default function SignupPage() {
+  const router = useRouter();
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await authAPI.signup({
+        full_name: fullName.trim(),
+        email: email.trim(),
+        password,
+        confirm_password: confirmPassword,
+      });
+      router.replace('/onboarding');
+    } catch (requestError) {
+      const message =
+        typeof requestError === 'object' && requestError !== null && 'response' in requestError
+          ? (requestError as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : undefined;
+      setError(message || 'Unable to create your account. Check your details and try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-[#080B14] text-zinc-100 selection:bg-indigo-500/30 selection:text-white">
+      {/* Left Column: Video & Brand Showcase (Desktop: 52% full-bleed height; Mobile: compact 180px-220px hero banner) */}
+      <div className="relative w-full lg:w-1/2 xl:w-[52%] h-[180px] sm:h-[220px] lg:h-auto lg:min-h-screen bg-black overflow-hidden flex flex-col justify-between p-5 sm:p-8 lg:p-12 shrink-0">
+        <StudyVideoPanel variant="signup" className="h-full w-full object-cover" />
+        
+        {/* Subtle dark film + gradient blend */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#080B14] via-[#080B14]/40 to-black/30 lg:bg-gradient-to-r lg:from-black/40 lg:via-black/20 lg:to-[#080B14] pointer-events-none z-10" />
+
+        {/* Top Brand Tag */}
+        <div className="relative z-20 flex items-center gap-3">
+          <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-indigo-500/20 border border-indigo-400/30 backdrop-blur-md text-indigo-300 shadow-lg shadow-indigo-500/20">
+            <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
+          </div>
+          <div>
+            <span className="text-sm sm:text-base font-bold tracking-tight text-white">Smart Learning Planner</span>
+            <span className="hidden sm:inline-block ml-2 rounded-full bg-indigo-500/20 px-2 py-0.5 text-[11px] font-medium text-indigo-300 border border-indigo-500/30">
+              AI-Powered
+            </span>
+          </div>
+        </div>
+
+        {/* Bottom Motivational Quote Card (Desktop only, untouched for PC) */}
+        <div className="relative z-20 hidden lg:block max-w-lg">
+          <div className="rounded-2xl border border-white/10 bg-black/50 p-6 backdrop-blur-xl shadow-2xl">
+            <div className="flex items-center gap-2 mb-2.5 text-indigo-300 text-xs font-semibold uppercase tracking-wider">
+              <span className="inline-block h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
+              Knowledge &amp; Growth
+            </div>
+            <p className="text-sm sm:text-base font-medium text-zinc-100 leading-relaxed italic">
+              &ldquo;The capacity to learn is a gift; the ability to learn is a skill; the willingness to learn is a choice.&rdquo;
+            </p>
+            <div className="mt-4 flex items-center justify-between text-xs text-zinc-400 border-t border-white/10 pt-3">
+              <span className="text-zinc-300 font-medium">— Brian Herbert</span>
+              <span className="text-emerald-400 font-medium flex items-center gap-1">✦ Start your journey</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Column: Auth Form Container (Responsive padding & smooth scroll for mobile, untouched on PC) */}
+      <div className="relative w-full lg:w-1/2 xl:w-[48%] flex-1 flex flex-col justify-center items-center px-5 sm:px-10 lg:p-16 lg:overflow-y-auto bg-[#080B14]">
+        <div className="w-full max-w-[420px] mx-auto z-10 pt-4 pb-8 sm:py-6 lg:py-6">
+          <div className="mb-5 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+              Create your account
+            </h1>
+            <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed">
+              Start with the essentials. We&apos;ll shape your study plan together next.
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-3.5 sm:space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-zinc-300 mb-1 sm:mb-1.5">
+                Full name
+              </label>
+              <div className="relative">
+                <UserRound className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                <input
+                  autoComplete="name"
+                  required
+                  minLength={2}
+                  maxLength={100}
+                  placeholder="Alex Johnson"
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  className="w-full rounded-xl border border-zinc-800 bg-[#0E121E] pl-10 pr-4 py-2.5 sm:py-3 text-base sm:text-sm text-zinc-100 placeholder-zinc-500 transition-colors focus:border-indigo-500 focus:bg-[#121727] focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-zinc-300 mb-1 sm:mb-1.5">
+                Email address
+              </label>
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                <input
+                  type="email"
+                  autoComplete="email"
+                  required
+                  placeholder="name@example.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="w-full rounded-xl border border-zinc-800 bg-[#0E121E] pl-10 pr-4 py-2.5 sm:py-3 text-base sm:text-sm text-zinc-100 placeholder-zinc-500 transition-colors focus:border-indigo-500 focus:bg-[#121727] focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-zinc-300 mb-1 sm:mb-1.5">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  required
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="w-full rounded-xl border border-zinc-800 bg-[#0E121E] pl-10 pr-11 py-2.5 sm:py-3 text-base sm:text-sm text-zinc-100 placeholder-zinc-500 transition-colors focus:border-indigo-500 focus:bg-[#121727] focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200 transition-colors p-2 focus:outline-none"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-zinc-300 mb-1 sm:mb-1.5">
+                Confirm password
+              </label>
+              <div className="relative">
+                <Lock className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  required
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  className="w-full rounded-xl border border-zinc-800 bg-[#0E121E] pl-10 pr-11 py-2.5 sm:py-3 text-base sm:text-sm text-zinc-100 placeholder-zinc-500 transition-colors focus:border-indigo-500 focus:bg-[#121727] focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200 transition-colors p-2 focus:outline-none"
+                  aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-2.5 text-sm text-rose-300">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 hover:from-indigo-400 hover:to-purple-500 active:scale-[0.99] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-1 sm:mt-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                  <span>Creating account…</span>
+                </>
+              ) : (
+                <>
+                  <span>Create account</span>
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="mt-5 sm:mt-6 text-center text-xs sm:text-sm text-zinc-400">
+            Already have an account?{' '}
+            <Link
+              href="/login"
+              className="font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
+            >
+              Log in
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

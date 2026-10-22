@@ -1,0 +1,38 @@
+{
+  "dashboardShortcuts": {
+    "headerButtons": [
+      "M",
+      "Focus Room"
+    ],
+    "hasSettingsCard": false,
+    "hasFocusRoom": true,
+    "hasAiAssistant": false,
+    "focusBtnWidth": 133.03125,
+    "focusBtnHeight": 42
+  },
+  "avatarOpensProfile": {
+    "modalFound": true,
+    "modalTitle": "Student Profile",
+    "isProfileTabActive": true,
+    "hasFullNameInput": false,
+    "hasEducationLevel": true,
+    "hasSaveButton": true
+  },
+  "moreOpensSettings": {
+    "modalFound": true,
+    "modalTitle": "Settings & Preferences",
+    "isSettingsTabActive": true,
+    "hasThemeCard": true,
+    "hasLogoutSection": true
+  },
+  "profilePersistence": {
+    "scoreGoalValue": "94",
+    "persisted": true
+  },
+  "desktopPreservation": {
+    "hasSettingsButton": true,
+    "hasFocusRoomLink": true,
+    "hasAiAssistantLink": true,
+    "isMobileNavHidden": true
+  }
+}

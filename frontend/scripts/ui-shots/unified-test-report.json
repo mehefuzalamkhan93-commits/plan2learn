@@ -1,0 +1,109 @@
+{
+  "dashboardFix": {
+    "h1": "Study Command Center",
+    "headerButtons": [
+      "M",
+      "Focus Room",
+      "Settings",
+      "",
+      "Settings"
+    ],
+    "aiAssistantFound": false,
+    "focusRoomFound": true,
+    "settingsFound": true,
+    "gridClasses": "grid grid-cols-2 gap-2.5 sm:gap-3"
+  },
+  "navigation": {
+    "navigatedUrl": "http://localhost:3000/planner",
+    "isPlannerRoute": true
+  },
+  "planner": {
+    "initial": {
+      "h1": "My Plan",
+      "hasShare": true,
+      "tabs": [
+        "Today",
+        "This Week",
+        "Subjects",
+        "Today",
+        "This Week",
+        "Subjects"
+      ],
+      "activeNav": "Planner",
+      "taskTitles": [
+        "Electromagnetic Induction Practice Set",
+        "Electromagnetic Induction: Self & Mutual Inductance",
+        "Thermodynamics - First Law Applications",
+        "Electromagnetic Induction Practice Set",
+        "Thermodynamics Numericals",
+        "Electromagnetic Induction Practice Set",
+        "Electromagnetic Induction: Self & Mutual Inductance",
+        "Thermodynamics - First Law Applications",
+        "Electromagnetic Induction Practice Set",
+        "Thermodynamics Numericals"
+      ]
+    },
+    "taskCountAfterAdd": 11
+  },
+  "viewports": [
+    {
+      "width": 320,
+      "maxW": 320,
+      "winW": 320,
+      "hasOverflow": false,
+      "shot": "planner-dark-320px.png"
+    },
+    {
+      "width": 360,
+      "maxW": 360,
+      "winW": 360,
+      "hasOverflow": false,
+      "shot": "planner-dark-360px.png"
+    },
+    {
+      "width": 375,
+      "maxW": 375,
+      "winW": 375,
+      "hasOverflow": false,
+      "shot": "planner-dark-375px.png"
+    },
+    {
+      "width": 390,
+      "maxW": 390,
+      "winW": 390,
+      "hasOverflow": false,
+      "shot": "planner-dark-390px.png"
+    },
+    {
+      "width": 412,
+      "maxW": 412,
+      "winW": 412,
+      "hasOverflow": false,
+      "shot": "planner-dark-412px.png"
+    },
+    {
+      "width": 430,
+      "maxW": 430,
+      "winW": 430,
+      "hasOverflow": false,
+      "shot": "planner-dark-430px.png"
+    },
+    {
+      "width": 480,
+      "maxW": 480,
+      "winW": 480,
+      "hasOverflow": false,
+      "shot": "planner-dark-480px.png"
+    }
+  ],
+  "desktop": {
+    "dashboard_dark": {
+      "isDesktopVisible": true,
+      "isMobileNavHidden": true
+    },
+    "dashboard_light": {
+      "isDesktopVisible": true,
+      "isMobileNavHidden": true
+    }
+  }
+}

@@ -1,0 +1,43 @@
+[
+  {
+    "name": "calibration modal fits viewport (portal ok)",
+    "ok": true,
+    "detail": "{\"overlayH\":850,\"fits\":true,\"height\":787,\"vh\":850,\"bodyOverflow\":\"hidden\"}"
+  },
+  {
+    "name": "calibration submitted",
+    "ok": true,
+    "detail": "exam=2026-11-30"
+  },
+  {
+    "name": "AI proposal generated & auto-confirmed",
+    "ok": true
+  },
+  {
+    "name": "plan preview modal fits viewport (portal ok)",
+    "ok": true,
+    "detail": "{\"overlayH\":850,\"fits\":true,\"height\":818,\"vh\":850,\"bodyOverflow\":\"hidden\"}"
+  },
+  {
+    "name": "roadmap stale banner after profile change (in-session)",
+    "ok": true
+  },
+  {
+    "name": "stale banner visible on roadmap tab",
+    "ok": true
+  },
+  {
+    "name": "dashboard exam date reflects Settings save",
+    "ok": false,
+    "detail": "(no D- badge)"
+  },
+  {
+    "name": "dashboard reflects generated plan",
+    "ok": true
+  },
+  {
+    "name": "intel shows updated weak topics after reload+save",
+    "ok": true,
+    "detail": "staleBanner=false"
+  }
+]
