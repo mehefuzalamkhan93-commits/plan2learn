@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { ThemeProvider } from '@/lib/theme';
+import { SplashProvider } from '@/context/SplashContext';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -86,7 +87,9 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.className}>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <SplashProvider>{children}</SplashProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -50,6 +50,9 @@ export function useAuth() {
     try {
       await authAPI.logout();
     } finally {
+      try {
+        sessionStorage.removeItem('p2l_session_splash_shown');
+      } catch {}
       setUser(null);
       setStatus('unauthenticated');
     }

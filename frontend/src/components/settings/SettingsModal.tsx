@@ -315,6 +315,9 @@ export default function SettingsModal({ isOpen, onClose, initialTab = 'profile' 
     setIsLoggingOut(true);
     try {
       await authAPI.logout();
+      try {
+        sessionStorage.removeItem('p2l_session_splash_shown');
+      } catch {}
       router.push('/login');
     } catch (err) {
       console.error('Logout error:', err);

@@ -8,9 +8,11 @@ import StudyVideoPanel from '@/components/auth/StudyVideoPanel';
 import { authAPI } from '@/services/api';
 import AppLogo from '@/components/ui/AppLogo';
 import GoogleSignInButton from '@/components/auth/GoogleSignInButton';
+import { useSplash } from '@/context/SplashContext';
 
 export default function SignupPage() {
   const router = useRouter();
+  const { triggerSplash } = useSplash();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,7 +39,7 @@ export default function SignupPage() {
         password,
         confirm_password: confirmPassword,
       });
-      router.replace('/onboarding');
+      triggerSplash({ destination: '/onboarding' });
     } catch (requestError) {
       const message =
         typeof requestError === 'object' && requestError !== null && 'response' in requestError

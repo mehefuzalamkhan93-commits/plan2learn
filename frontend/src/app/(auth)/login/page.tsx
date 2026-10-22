@@ -9,9 +9,11 @@ import { getSafeNextRoute } from '@/lib/authRouting';
 import { authAPI } from '@/services/api';
 import AppLogo from '@/components/ui/AppLogo';
 import GoogleSignInButton from '@/components/auth/GoogleSignInButton';
+import { useSplash } from '@/context/SplashContext';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { triggerSplash } = useSplash();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -25,7 +27,8 @@ export default function LoginPage() {
     try {
       const response = await authAPI.login({ email: email.trim(), password });
       const next = new URLSearchParams(window.location.search).get('next');
-      router.replace(getSafeNextRoute(next, response.data.user));
+      const targetRoute = getSafeNextRoute(next, response.data.user);
+      triggerSplash({ destination: targetRoute });
     } catch (requestError) {
       const message =
         typeof requestError === 'object' && requestError !== null && 'response' in requestError

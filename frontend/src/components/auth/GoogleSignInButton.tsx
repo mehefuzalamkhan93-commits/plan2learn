@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { authAPI } from '@/services/api';
 import { getSafeNextRoute } from '@/lib/authRouting';
+import { useSplash } from '@/context/SplashContext';
 
 const GIS_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
 const FALLBACK_CLIENT_ID =
@@ -25,6 +26,7 @@ export default function GoogleSignInButton({
   onError,
 }: GoogleSignInButtonProps) {
   const router = useRouter();
+  const { triggerSplash } = useSplash();
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isGisReady, setIsGisReady] = useState(false);
@@ -50,7 +52,8 @@ export default function GoogleSignInButton({
           typeof window !== 'undefined'
             ? new URLSearchParams(window.location.search).get('next')
             : null;
-        router.replace(getSafeNextRoute(next, user));
+        const targetRoute = getSafeNextRoute(next, user);
+        triggerSplash({ destination: targetRoute });
       } catch (err: unknown) {
         const errorDetail =
           typeof err === 'object' && err !== null && 'response' in err
@@ -63,7 +66,7 @@ export default function GoogleSignInButton({
         setIsLoading(false);
       }
     },
-    [router, onSuccess, onError]
+    [onSuccess, onError, triggerSplash]
   );
 
   useEffect(() => {

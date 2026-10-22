@@ -14,6 +14,9 @@ export default function LogoutButton() {
     try {
       await authAPI.logout();
     } finally {
+      try {
+        sessionStorage.removeItem('p2l_session_splash_shown');
+      } catch {}
       router.replace('/login');
     }
   };
