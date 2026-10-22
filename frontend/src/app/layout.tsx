@@ -10,11 +10,16 @@ export const metadata: Metadata = {
   description: 'Adaptive study planning with AI-powered scheduling, spaced repetition, and exam readiness prediction',
   icons: {
     icon: [
-      { url: '/images/app-logo.jpg', type: 'image/jpeg' },
+      { url: '/favicon.ico', sizes: 'any' },
       { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.png', type: 'image/png' },
+      { url: '/images/app-logo.jpg', type: 'image/jpeg' },
     ],
-    shortcut: '/images/app-logo.jpg',
-    apple: '/images/app-logo.jpg',
+    shortcut: '/favicon.ico',
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+      { url: '/images/app-logo.jpg' },
+    ],
   },
 };
 
@@ -35,6 +40,10 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" data-theme="dark" suppressHydrationWarning>
       <head>
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="icon" href="/favicon.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="preload" as="image" href="/chat-wallpaper-dark.png" />
         <link rel="preload" as="image" href="/sources-panel-dark.png" />
         <link rel="preload" as="image" href="/studio-panel-dark.png" />
