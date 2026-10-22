@@ -23,6 +23,14 @@ from app.ai.router import AIProviderRouter
 from app.main import create_app
 
 
+@pytest.fixture(autouse=True)
+def reset_ai_env(monkeypatch):
+    monkeypatch.delenv("AI_PROVIDER_MODE", raising=False)
+    monkeypatch.delenv("AI_PRIMARY_PROVIDER", raising=False)
+    monkeypatch.delenv("AI_PRIMARY_MODEL", raising=False)
+    monkeypatch.delenv("AI_FALLBACK_MODEL", raising=False)
+
+
 def run(coroutine):
     return asyncio.run(coroutine)
 

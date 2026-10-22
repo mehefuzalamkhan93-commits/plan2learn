@@ -9,6 +9,7 @@ from passlib.context import CryptContext
 
 from app.ai.config import get_ai_settings
 from app.models.user import User, UserSession
+from sqlalchemy.orm import joinedload
 
 MAX_ACTIVE_DEVICES = 2
 
@@ -180,7 +181,12 @@ def get_current_user_from_token(token: str, db) -> User | None:
     if not payload or "sub" not in payload:
         return None
     user_id = payload["sub"]
-    user = db.query(User).filter(User.id == user_id, User.is_active.is_(True)).first()
+    user = (
+        db.query(User)
+        .options(joinedload(User.profile))
+        .filter(User.id == user_id, User.is_active.is_(True))
+        .first()
+    )
     if not user:
         return None
 
@@ -199,11 +205,24 @@ def get_current_user_from_token(token: str, db) -> User | None:
         if not session or not session.is_active:
             return None
 
-        # Touch last_active_at
-        session.last_active_at = datetime.now(timezone.utc)
-        try:
-            db.commit()
-        except Exception:
-            db.rollback()
+        # Touch last_active_at periodically (e.g. at most once every 5 minutes)
+        # to prevent slow synchronous remote DB write locks on every GET request
+        now_utc = datetime.now(timezone.utc)
+        should_update = False
+        if not session.last_active_at:
+            should_update = True
+        else:
+            last_active = session.last_active_at
+            if last_active.tzinfo is None:
+                last_active = last_active.replace(tzinfo=timezone.utc)
+            if (now_utc - last_active).total_seconds() > 300:
+                should_update = True
+
+        if should_update:
+            session.last_active_at = now_utc
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
 
     return user

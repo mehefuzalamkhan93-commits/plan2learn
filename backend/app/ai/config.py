@@ -7,9 +7,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from app.ai.contracts import ProviderId, ProviderMode
 
 
+import os
+import sys
+
 class AISettings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=None if ("pytest" in sys.modules or os.getenv("PYTEST_CURRENT_TEST")) else ".env",
         env_file_encoding="utf-8",
         env_ignore_empty=True,
         extra="ignore",

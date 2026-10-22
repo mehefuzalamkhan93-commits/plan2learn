@@ -34,10 +34,13 @@ export function SplashProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setIsMounted(true);
     try {
-      const alreadyShown = sessionStorage.getItem(SPLASH_SESSION_KEY);
-      if (!alreadyShown) {
-        // Mark session so internal navigation or simple refresh doesn't re-trigger
-        sessionStorage.setItem(SPLASH_SESSION_KEY, 'true');
+      const lastShown = sessionStorage.getItem(SPLASH_SESSION_KEY);
+      const isForced = typeof window !== 'undefined' && window.location.search.includes('splash=');
+      const now = Date.now();
+      const COOLDOWN_MS = 5 * 60 * 1000; // 5-minute session cooldown
+
+      if (isForced || !lastShown || now - Number(lastShown) > COOLDOWN_MS) {
+        sessionStorage.setItem(SPLASH_SESSION_KEY, String(now));
         setIsSplashActive(true);
       }
     } catch {
@@ -47,7 +50,7 @@ export function SplashProvider({ children }: { children: ReactNode }) {
 
   const triggerSplash = useCallback((options?: TriggerOptions) => {
     try {
-      sessionStorage.setItem(SPLASH_SESSION_KEY, 'true');
+      sessionStorage.setItem(SPLASH_SESSION_KEY, String(Date.now()));
     } catch {
       // Ignore sessionStorage errors
     }

@@ -3,7 +3,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import and_, func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.auth import get_current_user
 from app.core.database import get_db
@@ -28,9 +28,10 @@ async def get_dashboard_summary(
     study_plan = db.query(StudyPlan).filter(StudyPlan.user_id == current_user.id).first()
     active_plan_version_id = study_plan.active_version_id if study_plan else None
 
-    # Get today's tasks
+    # Get today's tasks with eager-loaded topic and subject (single SQL query)
     today_tasks_query = (
         db.query(StudyTask)
+        .options(joinedload(StudyTask.topic).joinedload(Topic.subject))
         .filter(
             StudyTask.user_id == current_user.id,
             StudyTask.scheduled_date == today,
@@ -39,10 +40,11 @@ async def get_dashboard_summary(
     )
     today_tasks = today_tasks_query.all()
 
-    # Get upcoming tasks (next 7 days, excluding today)
+    # Get upcoming tasks (next 7 days, excluding today) with eager loading
     upcoming_end = today + timedelta(days=7)
     upcoming_tasks_query = (
         db.query(StudyTask)
+        .options(joinedload(StudyTask.topic).joinedload(Topic.subject))
         .filter(
             StudyTask.user_id == current_user.id,
             StudyTask.scheduled_date > today,
@@ -59,9 +61,10 @@ async def get_dashboard_summary(
     # Get readiness
     readiness = db.query(ReadinessScore).filter(ReadinessScore.user_id == current_user.id).first()
 
-    # Get review queue (topics due for review)
+    # Get review queue (topics due for review) with eager-loaded subject
     review_query = (
         db.query(Topic)
+        .options(joinedload(Topic.subject))
         .join(StudyTask, Topic.id == StudyTask.topic_id)
         .filter(
             StudyTask.user_id == current_user.id,

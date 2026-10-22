@@ -4,7 +4,7 @@ import uuid
 
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.auth import get_current_user
 from app.core.database import get_db
@@ -408,6 +408,7 @@ async def get_tasks(
 ) -> list[StudyTaskDetailOut]:
     tasks = (
         db.query(StudyTask)
+        .options(joinedload(StudyTask.topic).joinedload(Topic.subject))
         .filter(StudyTask.user_id == current_user.id)
         .order_by(StudyTask.scheduled_date, StudyTask.scheduled_time)
         .all()

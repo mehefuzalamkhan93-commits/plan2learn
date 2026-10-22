@@ -1813,3 +1813,15 @@ html.light aside[data-drawer] h3,
 [data-theme="light"] aside[data-drawer] h3 {
   color: #0f172a !important;
 }
+
+@keyframes progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
