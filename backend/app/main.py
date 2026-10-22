@@ -34,19 +34,24 @@ def create_app(settings: AISettings | None = None) -> FastAPI:
         version="0.1.0",
     )
 
-    development_origins = (
-        [
-            "http://localhost:3000",
-            "http://localhost:3001",
-            "http://127.0.0.1:3000",
-            "http://127.0.0.1:3001",
-        ]
-        if ai_settings.app_env.lower() == "development"
-        else []
-    )
+    cors_origins = list(ai_settings.cors_allowed_origins or [])
+    if ai_settings.app_env.lower() == "development":
+        cors_origins.extend(
+            [
+                "http://localhost:3000",
+                "http://localhost:3001",
+                "http://127.0.0.1:3000",
+                "http://127.0.0.1:3001",
+            ]
+        )
+    literal_origins = [o for o in cors_origins if "*" not in o]
+    if "https://plan2learn-ashen.vercel.app" not in literal_origins:
+        literal_origins.append("https://plan2learn-ashen.vercel.app")
+
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=ai_settings.cors_allowed_origins or development_origins,
+        allow_origins=literal_origins,
+        allow_origin_regex=r"^https:\/\/.*\.vercel\.app$",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
