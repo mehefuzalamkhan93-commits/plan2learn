@@ -41,16 +41,16 @@ class AISettings(BaseSettings):
     youtube_api_key: str | None = Field(default=None, repr=False)
 
     # Google Drive / OAuth 2.0 (backend-managed authorization-code flow)
-    google_drive_enabled: bool = False
+    google_drive_enabled: bool = True
     google_drive_client_id: str | None = None
     google_drive_client_secret: str | None = Field(default=None, repr=False)
-    google_drive_redirect_uri: str = "http://localhost:8000/api/v1/ai/drive/callback"
+    google_drive_redirect_uri: str = "https://plan2learn.onrender.com/api/v1/ai/drive/callback"
     # Optional Google Picker support (browser API key is public by design; it is
     # NOT a client secret). app_id is the OAuth client's project number.
     google_drive_api_key: str | None = None
     google_drive_app_id: str | None = None
     # Where the OAuth callback redirects the browser afterwards.
-    frontend_base_url: str = "http://localhost:3000"
+    frontend_base_url: str = "https://plan2learn-ashen.vercel.app"
 
     @field_validator("ai_task_models", mode="before")
     @classmethod
