@@ -106,27 +106,57 @@ apiClient.interceptors.response.use(
 // Auth endpoints
 export const authAPI = {
   signup: async (data: SignupRequest) => {
-    const response = await apiClient.post<ApiResponse<{ user: AuthenticatedUser; access_token?: string }>>(
-      '/auth/signup',
-      data
-    );
-    const token = (response.data as any)?.data?.access_token || (response.data as any)?.access_token;
+    const response = await apiClient.post<any>('/auth/signup', data);
+    const token =
+      response.data?.data?.access_token ||
+      response.data?.access_token ||
+      (response.data as any)?.token;
     if (token) {
       setStoredToken(token);
     }
-    return response.data;
+    const rawUser = response.data?.data?.user || response.data?.user || response.data?.data || response.data;
+    const user: AuthenticatedUser = {
+      id: rawUser?.id || '',
+      email: rawUser?.email || '',
+      full_name: rawUser?.full_name || '',
+      is_onboarded: Boolean(rawUser?.is_onboarded),
+      has_student_profile: Boolean(rawUser?.has_student_profile),
+    };
+    return {
+      ...response.data,
+      data: {
+        ...(response.data?.data || {}),
+        user,
+        access_token: token,
+      },
+    };
   },
 
   login: async (data: LoginRequest) => {
-    const response = await apiClient.post<ApiResponse<{ user: AuthenticatedUser; access_token?: string }>>(
-      '/auth/login',
-      data
-    );
-    const token = (response.data as any)?.data?.access_token || (response.data as any)?.access_token;
+    const response = await apiClient.post<any>('/auth/login', data);
+    const token =
+      response.data?.data?.access_token ||
+      response.data?.access_token ||
+      (response.data as any)?.token;
     if (token) {
       setStoredToken(token);
     }
-    return response.data;
+    const rawUser = response.data?.data?.user || response.data?.user || response.data?.data || response.data;
+    const user: AuthenticatedUser = {
+      id: rawUser?.id || '',
+      email: rawUser?.email || '',
+      full_name: rawUser?.full_name || '',
+      is_onboarded: Boolean(rawUser?.is_onboarded),
+      has_student_profile: Boolean(rawUser?.has_student_profile),
+    };
+    return {
+      ...response.data,
+      data: {
+        ...(response.data?.data || {}),
+        user,
+        access_token: token,
+      },
+    };
   },
 
   logout: async () => {
@@ -139,8 +169,19 @@ export const authAPI = {
   },
 
   getCurrentUser: async () => {
-    const response = await apiClient.get<ApiResponse<AuthenticatedUser>>('/auth/me');
-    return response.data;
+    const response = await apiClient.get<any>('/auth/me');
+    const rawUser = response.data?.data?.user || response.data?.user || response.data?.data || response.data;
+    const user: AuthenticatedUser = {
+      id: rawUser?.id || '',
+      email: rawUser?.email || '',
+      full_name: rawUser?.full_name || '',
+      is_onboarded: Boolean(rawUser?.is_onboarded),
+      has_student_profile: Boolean(rawUser?.has_student_profile),
+    };
+    return {
+      ...response.data,
+      data: user,
+    };
   },
 
   getProfile: async () => {

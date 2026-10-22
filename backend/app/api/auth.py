@@ -31,10 +31,10 @@ def get_current_user(
     db: Session = Depends(get_db),
 ) -> User:
     token = access_token
-    if not token and "Authorization" in request.headers:
-        auth_header = request.headers["Authorization"]
-        if auth_header.startswith("Bearer "):
-            token = auth_header[7:]
+    if not token:
+        auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
+        if auth_header and auth_header.lower().startswith("bearer "):
+            token = auth_header[7:].strip()
 
     if not token:
         raise HTTPException(
@@ -115,7 +115,7 @@ def signup(
         key="access_token",
         value=token,
         httponly=True,
-        samesite="lax",
+        samesite="none" if get_ai_settings().app_env.lower() != "development" else "lax",
         secure=get_ai_settings().app_env.lower() != "development",
         max_age=7 * 24 * 3600,
     )
@@ -146,7 +146,7 @@ def login(
         key="access_token",
         value=token,
         httponly=True,
-        samesite="lax",
+        samesite="none" if get_ai_settings().app_env.lower() != "development" else "lax",
         secure=get_ai_settings().app_env.lower() != "development",
         max_age=7 * 24 * 3600,
     )
@@ -161,7 +161,11 @@ def login(
 
 @router.post("/logout", response_model=AuthResponse)
 def logout(response: Response) -> AuthResponse:
-    response.delete_cookie(key="access_token")
+    response.delete_cookie(
+        key="access_token",
+        samesite="none" if get_ai_settings().app_env.lower() != "development" else "lax",
+        secure=get_ai_settings().app_env.lower() != "development",
+    )
     return AuthResponse(success=True, data=None, message="Logged out successfully.")
 
 

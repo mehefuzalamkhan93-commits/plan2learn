@@ -7,6 +7,20 @@ import { AuthenticatedUser } from '@/types';
 
 export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
+function normalizeUser(data: unknown): AuthenticatedUser | null {
+  if (!data || typeof data !== 'object') return null;
+  const anyData = data as Record<string, any>;
+  const raw = anyData.user || anyData.data?.user || anyData.data || anyData;
+  if (!raw || typeof raw !== 'object' || !raw.id) return null;
+  return {
+    id: String(raw.id),
+    email: String(raw.email || ''),
+    full_name: String(raw.full_name || ''),
+    is_onboarded: Boolean(raw.is_onboarded),
+    has_student_profile: Boolean(raw.has_student_profile),
+  };
+}
+
 export function useAuth() {
   const [user, setUser] = useState<AuthenticatedUser | null>(null);
   const [status, setStatus] = useState<AuthStatus>('loading');
@@ -17,9 +31,10 @@ export function useAuth() {
     setError(null);
     try {
       const response = await authAPI.getCurrentUser();
-      setUser(response.data);
-      setStatus('authenticated');
-      return response.data;
+      const userData = normalizeUser(response.data);
+      setUser(userData);
+      setStatus(userData ? 'authenticated' : 'unauthenticated');
+      return userData;
     } catch (requestError) {
       const axiosError = requestError as AxiosError<{ detail?: string }>;
       setUser(null);
@@ -46,8 +61,9 @@ export function useAuth() {
       .getCurrentUser()
       .then((response) => {
         if (active) {
-          setUser(response.data);
-          setStatus('authenticated');
+          const userData = normalizeUser(response.data);
+          setUser(userData);
+          setStatus(userData ? 'authenticated' : 'unauthenticated');
         }
       })
       .catch((requestError: unknown) => {
