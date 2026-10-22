@@ -3,6 +3,8 @@
 .env.*
 !.env.example
 backend/.env
+render.env
+*.render.env
 frontend/.env*
 client_secret*.json
 
