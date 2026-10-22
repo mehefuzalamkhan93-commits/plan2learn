@@ -31,8 +31,8 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Require student profile onboarding before accessing protected features
-    if (!user.has_student_profile && pathname !== '/onboarding') {
+    // Require basic info onboarding before accessing protected features
+    if (!user.is_onboarded && pathname !== '/onboarding') {
       if (typeof window !== 'undefined') {
         window.location.replace('/onboarding');
       }
@@ -76,7 +76,7 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!user.has_student_profile && pathname !== '/onboarding') {
+  if (!user.is_onboarded && pathname !== '/onboarding') {
     return (
       <main className="flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-300 px-4">
         <div className="flex flex-col items-center gap-3 text-center">

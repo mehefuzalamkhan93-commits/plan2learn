@@ -31,10 +31,10 @@ def save_baseline_profile(
         profile.grade_class = payload.grade_class.strip()
         profile.target_subjects = [subject.strip() for subject in payload.target_subjects]
 
-    current_user.is_onboarded = False
+    current_user.is_onboarded = True
     db.commit()
     db.refresh(profile)
     return OnboardingResponse(
-        data={"profile": StudentProfileOut.model_validate(profile).model_dump(), "next_route": "/ai"},
+        data={"profile": StudentProfileOut.model_validate(profile).model_dump(), "next_route": "/dashboard"},
         message="Baseline student profile saved.",
     )

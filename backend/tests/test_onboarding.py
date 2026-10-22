@@ -88,10 +88,10 @@ def test_baseline_onboarding_creates_profile_and_preserves_unapproved_state(
 
     assert response.status_code == 200
     data = response.json()["data"]
-    assert data["next_route"] == "/ai"
+    assert data["next_route"] == "/dashboard"
     assert data["profile"]["target_subjects"] == ["Calculus", "Physics"]
     assert data["profile"]["daily_time_minutes"] == 180
-    assert onboarding_client.get("/api/v1/auth/me").json()["data"]["is_onboarded"] is False
+    assert onboarding_client.get("/api/v1/auth/me").json()["data"]["is_onboarded"] is True
 
 
 def test_baseline_onboarding_requires_authentication(onboarding_client: SyncASGITestClient) -> None:
