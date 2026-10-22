@@ -22,6 +22,9 @@ export const metadata: Metadata = {
     ],
   },
   manifest: '/site.webmanifest',
+  verification: {
+    google: 'google06d26d39e07fa394',
+  },
 };
 
 
