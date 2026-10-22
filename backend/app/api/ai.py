@@ -1211,17 +1211,41 @@ async def chat_with_ai(
     try:
         result = await ai_router.generate(request)
     except AIUnavailableError as e:
-        logger.error("AI chat generation unavailable: %s | errors=%s", e, getattr(e, "errors", ()))
-        db.rollback()
-        detail = (
-            "AI service is not configured. Please verify provider settings."
-            if e.is_configuration_error
-            else "AI service temporarily unavailable. Please try again in a few moments."
-        )
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=detail,
-        )
+        if response_model is not None:
+            # Resilient fallback: if structured JSON extraction fails, attempt standard conversational chat
+            logger.warning("Structured extraction failed; falling back to natural language chat: %s", e)
+            try:
+                chat_request = AIRequest(
+                    task_type=AITaskType.CHAT,
+                    messages=final_messages,
+                    response_model=None,
+                    fallback_allowed=True,
+                )
+                result = await ai_router.generate(chat_request)
+            except Exception as fallback_exc:
+                logger.error("AI chat fallback generation also unavailable: %s", fallback_exc)
+                db.rollback()
+                detail = (
+                    "AI service is not configured. Please verify provider settings."
+                    if e.is_configuration_error
+                    else "AI service temporarily unavailable. Please try again in a few moments."
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=detail,
+                )
+        else:
+            logger.error("AI chat generation unavailable: %s | errors=%s", e, getattr(e, "errors", ()))
+            db.rollback()
+            detail = (
+                "AI service is not configured. Please verify provider settings."
+                if e.is_configuration_error
+                else "AI service temporarily unavailable. Please try again in a few moments."
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=detail,
+            )
     except Exception as e:
         logger.exception("AI chat generation unexpected error: %s", e)
         db.rollback()

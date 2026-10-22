@@ -103,7 +103,7 @@ from datetime import date, timedelta
 
 
 def confirm_plan(client: SyncASGITestClient) -> None:
-    today = date(2026, 10, 10)
+    today = date.today()
     end_date = today + timedelta(days=13)
 
     tasks = []
