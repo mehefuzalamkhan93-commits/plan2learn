@@ -5,20 +5,30 @@ import { motion } from 'framer-motion';
 
 interface FocusEnvironmentProps {
   onReady?: () => void;
+  isMuted?: boolean;
+  volume?: number; // 0 to 100
+  isPlaying?: boolean;
 }
 
 /**
  * FocusEnvironment: Fullscreen immersive lofi study video background
- * Uses specific YouTube video with controlled autoplay, mute, loop, and no controls
+ * Uses specific YouTube video with controlled autoplay, loop, and YouTube IFrame API audio control
  */
-export default function FocusEnvironment({ onReady }: FocusEnvironmentProps) {
+export default function FocusEnvironment({
+  onReady,
+  isMuted = true,
+  volume = 75,
+  isPlaying = true,
+}: FocusEnvironmentProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [showFallback, setShowFallback] = useState(false);
   const [isStarted, setIsStarted] = useState(false);
 
   const VIDEO_ID = 'eArLcYCwQbs';
   const START_TIME = 145;
-  const embedUrl = `https://www.youtube.com/embed/${VIDEO_ID}?autoplay=1&mute=1&start=${START_TIME}&controls=0&disablekb=1&playsinline=1&fs=0&loop=1&playlist=${VIDEO_ID}&rel=0&modestbranding=1&iv_load_policy=3`;
+
+  // enablejsapi=1 enables postMessage API communication with YouTube embed player
+  const embedUrl = `https://www.youtube.com/embed/${VIDEO_ID}?enablejsapi=1&autoplay=1&mute=1&start=${START_TIME}&controls=0&disablekb=1&playsinline=1&fs=0&loop=1&playlist=${VIDEO_ID}&rel=0&modestbranding=1&iv_load_policy=3`;
 
   useEffect(() => {
     if (onReady) {
@@ -26,6 +36,59 @@ export default function FocusEnvironment({ onReady }: FocusEnvironmentProps) {
     }
     setIsStarted(true);
   }, [onReady]);
+
+  // Handle Mute / Unmute commands via postMessage
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe?.contentWindow) return;
+
+    try {
+      const command = isMuted ? 'mute' : 'unMute';
+      iframe.contentWindow.postMessage(
+        JSON.stringify({ event: 'command', func: command, args: [] }),
+        '*'
+      );
+      if (!isMuted) {
+        iframe.contentWindow.postMessage(
+          JSON.stringify({ event: 'command', func: 'setVolume', args: [volume] }),
+          '*'
+        );
+      }
+    } catch (e) {
+      console.warn('Failed to send mute command to YouTube iframe:', e);
+    }
+  }, [isMuted, volume]);
+
+  // Handle Volume changes via postMessage
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe?.contentWindow || isMuted) return;
+
+    try {
+      iframe.contentWindow.postMessage(
+        JSON.stringify({ event: 'command', func: 'setVolume', args: [volume] }),
+        '*'
+      );
+    } catch (e) {
+      console.warn('Failed to send volume command to YouTube iframe:', e);
+    }
+  }, [volume, isMuted]);
+
+  // Handle Play / Pause commands via postMessage
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe?.contentWindow) return;
+
+    try {
+      const command = isPlaying ? 'playVideo' : 'pauseVideo';
+      iframe.contentWindow.postMessage(
+        JSON.stringify({ event: 'command', func: command, args: [] }),
+        '*'
+      );
+    } catch (e) {
+      console.warn('Failed to send playback command to YouTube iframe:', e);
+    }
+  }, [isPlaying]);
 
   const handleStartEnvironment = () => {
     setShowFallback(false);
@@ -36,7 +99,7 @@ export default function FocusEnvironment({ onReady }: FocusEnvironmentProps) {
   };
 
   return (
-    <div className="absolute inset-0 w-full h-full overflow-hidden">
+    <div className="absolute inset-0 w-full h-full overflow-hidden bg-zinc-950">
       <div className="absolute inset-0 w-full h-full">
         <iframe
           ref={iframeRef}

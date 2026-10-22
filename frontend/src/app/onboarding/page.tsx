@@ -1,10 +1,11 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LoaderCircle } from 'lucide-react';
 import { onboardingAPI } from '@/services/api';
 import AppLogo from '@/components/ui/AppLogo';
+import { useAuth } from '@/hooks/useAuth';
 
 const educationLevels = ['High School', 'Undergraduate', 'Postgraduate', 'Other'];
 
@@ -35,6 +36,7 @@ const indianBoards = [
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { user, setUser, refresh, status } = useAuth();
   const [educationLevel, setEducationLevel] = useState('');
   const [boardCurriculum, setBoardCurriculum] = useState('');
   const [customBoard, setCustomBoard] = useState('');
@@ -42,6 +44,13 @@ export default function OnboardingPage() {
   const [subjects, setSubjects] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // If already onboarded, immediately skip onboarding to prevent showing it twice
+  useEffect(() => {
+    if (status === 'authenticated' && user?.is_onboarded) {
+      router.replace('/dashboard');
+    }
+  }, [user, status, router]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -68,7 +77,20 @@ export default function OnboardingPage() {
         grade_class: gradeClass.trim(),
         target_subjects: targetSubjects,
       });
-      router.replace(response.data.next_route);
+
+      // Synchronously update AuthContext before navigation so ProtectedRoute doesn't bounce back
+      if (user) {
+        setUser({
+          ...user,
+          is_onboarded: true,
+          has_student_profile: true,
+        });
+      }
+      try {
+        await refresh();
+      } catch {}
+
+      router.replace(response?.data?.next_route || '/dashboard');
     } catch (requestError) {
       const message =
         typeof requestError === 'object' && requestError !== null && 'response' in requestError
