@@ -30,6 +30,7 @@ import StudioDrawer from '@/components/ai/StudioDrawer';
 import PlanPreviewModal from '@/components/ai/PlanPreviewModal';
 import RoadmapCalibrationModal from '@/components/plan/RoadmapCalibrationModal';
 import SettingsButton from '@/components/settings/SettingsButton';
+import AppLogo from '@/components/ui/AppLogo';
 import { usePlannerStore } from '@/store/usePlannerStore';
 import { useTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
@@ -442,12 +443,10 @@ export default function AIAssistantPage() {
         )}
 
         {/* Brand */}
-        <div className="hidden min-w-0 shrink items-center gap-2 sm:flex">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-indigo-400/30 bg-indigo-500/15 text-indigo-300 sm:h-8 sm:w-8">
-            <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          </span>
+        <div className="hidden min-w-0 shrink items-center gap-2.5 sm:flex">
+          <AppLogo size="sm" href="/dashboard" priority />
           <span className="hidden truncate text-sm font-semibold text-white lg:inline">
-            AI Study Notebook
+            Plan2Learn AI Notebook
           </span>
         </div>
 

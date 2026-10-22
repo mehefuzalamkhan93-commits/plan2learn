@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { LoaderCircle, Sparkles, UserRound, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import StudyVideoPanel from '@/components/auth/StudyVideoPanel';
 import { authAPI } from '@/services/api';
+import AppLogo from '@/components/ui/AppLogo';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -58,9 +59,7 @@ export default function SignupPage() {
 
         {/* Top Brand Tag */}
         <div className="relative z-20 flex items-center gap-3">
-          <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-indigo-500/20 border border-indigo-400/30 backdrop-blur-md text-indigo-300 shadow-lg shadow-indigo-500/20">
-            <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
-          </div>
+          <AppLogo size="md" priority />
           <div>
             <span className="text-sm sm:text-base font-bold tracking-tight text-white">Plan2Learn</span>
 

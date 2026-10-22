@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { useTheme } from '@/lib/theme';
 import { useAuth } from '@/hooks/useAuth';
 import SettingsModal from '@/components/settings/SettingsModal';
+import AppLogo from '@/components/ui/AppLogo';
 
 interface MobileBottomNavProps {
   active: 'home' | 'planner' | 'ai' | 'focus' | 'more';
@@ -182,9 +183,12 @@ export default function MobileBottomNav({ active }: MobileBottomNavProps) {
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-600 dark:bg-zinc-600 light:bg-slate-300" />
 
             <div className="flex items-center justify-between pb-3 border-b border-white/[0.08] dark:border-white/[0.08] light:border-slate-200">
-              <span className="text-sm font-bold text-white dark:text-white light:text-slate-900">
-                Menu &amp; Quick Links
-              </span>
+              <div className="flex items-center gap-2.5">
+                <AppLogo size="xs" />
+                <span className="text-sm font-bold text-white dark:text-white light:text-slate-900">
+                  Plan2Learn Menu
+                </span>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowMoreDrawer(false)}

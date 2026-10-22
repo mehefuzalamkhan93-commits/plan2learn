@@ -48,6 +48,7 @@ import {
 } from '@/types';
 import MarkdownContent from './MarkdownContent';
 import MobileBottomNav from '@/components/navigation/MobileBottomNav';
+import AppLogo from '@/components/ui/AppLogo';
 
 interface MobileAIAssistantProps {
   notebooks?: NotebookOut[];
@@ -790,7 +791,8 @@ export default function MobileAIAssistant({
       <main className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-4 sm:px-4 space-y-4 pb-44 custom-scrollbar">
         {messages.length === 0 ? (
           /* Minimal Start Screen */
-          <div className="flex min-h-[60vh] flex-col items-center justify-center text-center px-2 py-6">
+          <div className="flex min-h-[50vh] flex-col items-center justify-center text-center px-2 py-6">
+            <AppLogo size="lg" className="mb-4" priority />
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white dark:text-white light:text-slate-900 max-w-xs">
               How can I help you with your studies?
             </h2>
@@ -1041,8 +1043,8 @@ export default function MobileAIAssistant({
           <div className="relative z-10 w-full max-w-md mx-auto max-h-[82dvh] flex flex-col rounded-t-3xl border-t border-white/[0.1] dark:border-white/[0.1] light:border-slate-200 bg-[#0e1424] dark:bg-[#0e1424] light:bg-white p-5 shadow-2xl animate-slide-up">
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-zinc-600" />
             <div className="flex items-center justify-between pb-3 border-b border-white/[0.08] dark:border-white/[0.08] light:border-slate-200">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-indigo-400" />
+              <div className="flex items-center gap-2.5">
+                <AppLogo size="xs" />
                 <h3 className="text-sm font-bold text-white dark:text-white light:text-slate-900">
                   Recent Chats
                 </h3>

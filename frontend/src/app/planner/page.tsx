@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 import MobilePlanner from '@/components/plan/MobilePlanner';
+import AppLogo from '@/components/ui/AppLogo';
 
 export default function PlannerPage() {
   return (
@@ -25,6 +26,7 @@ export default function PlannerPage() {
                 <ArrowLeft className="h-4 w-4" />
                 <span>Back to Dashboard</span>
               </Link>
+              <AppLogo size="sm" href="/dashboard" priority />
               <h1 className="text-2xl font-bold tracking-tight text-white dark:text-white light:text-slate-900">
                 Study Planner &amp; Schedule
               </h1>

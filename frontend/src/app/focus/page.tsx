@@ -9,6 +9,7 @@ import FocusHud from '@/components/focus/FocusHud';
 import FocusEnvironment from '@/components/focus/FocusEnvironment';
 import { buttonTapProps } from '@/lib/motion';
 import { usePlannerStore } from '@/store/usePlannerStore';
+import AppLogo from '@/components/ui/AppLogo';
 
 export default function FocusPage() {
   const router = useRouter();
@@ -104,6 +105,9 @@ export default function FocusPage() {
           <ArrowLeft className="w-4 h-4" />
           <span className="hidden sm:inline">Back to Dashboard</span>
         </motion.button>
+
+        {/* Center: AppLogo */}
+        <AppLogo size="sm" showText href="/dashboard" priority />
 
         {/* Fullscreen Toggle */}
         <motion.button

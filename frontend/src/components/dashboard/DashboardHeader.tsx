@@ -9,6 +9,8 @@ import { itemEntranceVariants } from '@/lib/motion';
 import SettingsButton from '@/components/settings/SettingsButton';
 import { useTheme } from '@/lib/theme';
 
+import AppLogo from '@/components/ui/AppLogo';
+
 interface DashboardHeaderProps {
   userName?: string;
   tasksCount: number;
@@ -33,9 +35,19 @@ export default function DashboardHeader({
       className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6 pb-6 xl:pb-8 border-b border-white/[0.08] light:border-slate-200"
     >
       <div className="space-y-3">
-        <h1 className="text-[1.9rem] sm:text-[2.2rem] xl:text-[2.4rem] 2xl:text-[2.6rem] font-semibold tracking-tight text-zinc-100 leading-none light:text-slate-900">
-          Study Command Center
-        </h1>
+        <div className="flex items-center gap-3.5">
+          <AppLogo size="md" href="/dashboard" priority />
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-bold tracking-wider uppercase text-indigo-400 dark:text-indigo-400 light:text-indigo-600">
+                Plan2Learn
+              </span>
+            </div>
+            <h1 className="text-[1.8rem] sm:text-[2.1rem] xl:text-[2.3rem] font-semibold tracking-tight text-zinc-100 leading-none light:text-slate-900">
+              Study Command Center
+            </h1>
+          </div>
+        </div>
         <p className="text-sm sm:text-base xl:text-[17px] text-zinc-400 leading-snug light:text-slate-500">
           Welcome back, {displayName}. You have{' '}
           <span className="text-zinc-200 font-medium light:text-slate-700">{remainingTasks} tasks remaining</span> and{' '}

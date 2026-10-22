@@ -9,9 +9,12 @@ export const metadata: Metadata = {
   title: 'Plan2Learn - AI-Driven Study Platform',
   description: 'Adaptive study planning with AI-powered scheduling, spaced repetition, and exam readiness prediction',
   icons: {
-    icon: '/favicon.svg',
-    shortcut: '/favicon.svg',
-    apple: '/favicon.svg',
+    icon: [
+      { url: '/images/app-logo.jpg', type: 'image/jpeg' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/images/app-logo.jpg',
+    apple: '/images/app-logo.jpg',
   },
 };
 

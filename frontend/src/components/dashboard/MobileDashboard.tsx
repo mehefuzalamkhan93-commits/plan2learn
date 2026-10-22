@@ -31,6 +31,7 @@ import { cn } from '@/lib/utils';
 import { useTheme } from '@/lib/theme';
 import { useAuth } from '@/hooks/useAuth';
 import SettingsModal from '@/components/settings/SettingsModal';
+import AppLogo from '@/components/ui/AppLogo';
 import { AuthenticatedUser, UserProfile, TodayTaskOut, StreakOut, PlanItem } from '@/types';
 
 interface MobileDashboardProps {
@@ -145,24 +146,30 @@ export default function MobileDashboard({
             ==================================================================== */}
         <header className="space-y-3.5">
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white dark:text-white light:text-slate-900 truncate">
-                Study Command Center
-              </h1>
-              <p className="mt-1 text-xs sm:text-sm font-medium text-zinc-400 dark:text-zinc-400 light:text-slate-500 truncate">
-                Welcome back, {firstName}.
-              </p>
-              <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-400 light:text-slate-500">
-                {totalTasksCount === 0 ? (
-                  <span>Ready for a new study session today.</span>
-                ) : remainingTasksCount === 0 ? (
-                  <span className="text-emerald-400 dark:text-emerald-400 light:text-emerald-700 font-medium">
-                    All {totalTasksCount} tasks completed today!
-                  </span>
-                ) : (
-                  <span>You have {remainingTasksCount} tasks remaining today.</span>
-                )}
-              </p>
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <AppLogo size="sm" href="/dashboard" priority />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 leading-none mb-0.5">
+                  <span className="text-[10px] font-bold tracking-wider uppercase text-indigo-400 dark:text-indigo-400 light:text-indigo-600">Plan2Learn</span>
+                </div>
+                <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white dark:text-white light:text-slate-900 truncate">
+                  Study Command Center
+                </h1>
+                <p className="mt-0.5 text-xs font-medium text-zinc-400 dark:text-zinc-400 light:text-slate-500 truncate">
+                  Welcome back, {firstName}.
+                </p>
+                <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-400 light:text-slate-500">
+                  {totalTasksCount === 0 ? (
+                    <span>Ready for a new study session today.</span>
+                  ) : remainingTasksCount === 0 ? (
+                    <span className="text-emerald-400 dark:text-emerald-400 light:text-emerald-700 font-medium">
+                      All {totalTasksCount} tasks completed today!
+                    </span>
+                  ) : (
+                    <span>You have {remainingTasksCount} tasks remaining today.</span>
+                  )}
+                </p>
+              </div>
             </div>
 
             {/* Profile Avatar */}

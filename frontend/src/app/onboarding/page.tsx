@@ -2,8 +2,9 @@
 
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LoaderCircle, Sparkles } from 'lucide-react';
+import { LoaderCircle } from 'lucide-react';
 import { onboardingAPI } from '@/services/api';
+import AppLogo from '@/components/ui/AppLogo';
 
 const educationLevels = ['High School', 'Undergraduate', 'Postgraduate', 'Other'];
 
@@ -83,8 +84,8 @@ export default function OnboardingPage() {
     <main className="relative flex min-h-screen items-center justify-center bg-zinc-950 px-4 py-10 text-zinc-100 sm:px-6">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(700px_circle_at_50%_16%,rgba(124,140,255,0.1),transparent_58%)]" />
       <section className="relative z-10 w-full max-w-xl rounded-xl border border-white/[0.08] bg-zinc-900/60 p-6 shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-8">
-        <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-lg border border-indigo-300/15 bg-indigo-400/[0.08] text-indigo-200">
-          <Sparkles className="h-5 w-5" />
+        <div className="mb-5 flex">
+          <AppLogo size="md" priority />
         </div>
         <p className="text-xs font-mono uppercase tracking-[0.16em] text-indigo-200/80">Your starting point</p>
         <h1 className="mt-2 text-2xl font-semibold text-zinc-100 sm:text-3xl">Set your academic baseline</h1>

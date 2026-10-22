@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ReactNode } from 'react';
-import { ArrowLeft, Sparkles } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
+import AppLogo from '@/components/ui/AppLogo';
 
 interface AuthShellProps {
   title: string;
@@ -19,13 +20,12 @@ export default function AuthShell({ title, description, footer, children }: Auth
           className="mb-8 inline-flex items-center gap-2 text-sm text-zinc-400 transition-colors hover:text-zinc-100"
         >
           <ArrowLeft className="h-4 w-4" />
-          Plan2Learn
+          <AppLogo size="xs" showText priority />
         </Link>
 
-
         <div className="rounded-xl border border-white/[0.09] bg-zinc-900/65 p-6 shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-8">
-          <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-lg border border-indigo-300/15 bg-indigo-400/[0.08] text-indigo-200">
-            <Sparkles className="h-5 w-5" />
+          <div className="mb-5 flex">
+            <AppLogo size="md" priority />
           </div>
           <h1 className="text-2xl font-semibold text-zinc-100">{title}</h1>
           <p className="mt-2 text-sm leading-relaxed text-zinc-400">{description}</p>
