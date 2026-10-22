@@ -46,13 +46,20 @@ def create_app(settings: AISettings | None = None) -> FastAPI:
             ]
         )
     literal_origins = [o for o in cors_origins if "*" not in o]
-    if "https://plan2learn-ashen.vercel.app" not in literal_origins:
-        literal_origins.append("https://plan2learn-ashen.vercel.app")
+    default_allowed_origins = [
+        "https://plan2learn.online",
+        "https://www.plan2learn.online",
+        "https://plan2learn-ashen.vercel.app",
+        "https://plan2learn.vercel.app",
+    ]
+    for origin in default_allowed_origins:
+        if origin not in literal_origins:
+            literal_origins.append(origin)
 
     application.add_middleware(
         CORSMiddleware,
         allow_origins=literal_origins,
-        allow_origin_regex=r"^https:\/\/.*\.vercel\.app$",
+        allow_origin_regex=r"^https:\/\/(.*\.)?(vercel\.app|plan2learn\.online)$",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
