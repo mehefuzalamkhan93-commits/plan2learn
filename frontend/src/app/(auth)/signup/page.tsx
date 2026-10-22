@@ -8,6 +8,7 @@ import StudyVideoPanel from '@/components/auth/StudyVideoPanel';
 import { authAPI } from '@/services/api';
 import AppLogo from '@/components/ui/AppLogo';
 import GoogleSignInButton from '@/components/auth/GoogleSignInButton';
+import OTPVerificationForm from '@/components/auth/OTPVerificationForm';
 import { useSplash } from '@/context/SplashContext';
 
 export default function SignupPage() {
@@ -21,6 +22,12 @@ export default function SignupPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [otpChallenge, setOtpChallenge] = useState<{
+    challengeId: string;
+    maskedEmail: string;
+    expiresInSeconds?: number;
+    resendCooldownSeconds?: number;
+  } | null>(null);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -33,12 +40,23 @@ export default function SignupPage() {
 
     setIsSubmitting(true);
     try {
-      await authAPI.signup({
+      const response = await authAPI.signup({
         full_name: fullName.trim(),
         email: email.trim(),
         password,
         confirm_password: confirmPassword,
       });
+
+      if (response.requires_otp && response.challenge_id) {
+        setOtpChallenge({
+          challengeId: response.challenge_id,
+          maskedEmail: response.masked_email || email.trim(),
+          expiresInSeconds: response.expires_in_seconds,
+          resendCooldownSeconds: response.resend_cooldown_seconds,
+        });
+        return;
+      }
+
       triggerSplash({ destination: '/onboarding' });
     } catch (requestError) {
       const message =
@@ -93,155 +111,167 @@ export default function SignupPage() {
       {/* Right Column: Auth Form Container (Responsive padding & smooth scroll for mobile, untouched on PC) */}
       <div className="relative w-full lg:w-1/2 xl:w-[48%] flex-1 flex flex-col justify-center items-center px-5 sm:px-10 lg:p-16 lg:overflow-y-auto bg-[#080B14]">
         <div className="w-full max-w-[420px] mx-auto z-10 pt-4 pb-8 sm:py-6 lg:py-6">
-          <div className="mb-5 sm:mb-8">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-              Create your account
-            </h1>
-            <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed">
-              Start with the essentials. We&apos;ll shape your study plan together next.
-            </p>
-          </div>
-
-          {/* Google One-Click Authentication */}
-          <div className="mb-5 sm:mb-6">
-            <GoogleSignInButton mode="signup" />
-
-            <div className="relative my-4 sm:my-5">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-zinc-800" />
+          {otpChallenge ? (
+            <OTPVerificationForm
+              challengeId={otpChallenge.challengeId}
+              maskedEmail={otpChallenge.maskedEmail}
+              expiresInSeconds={otpChallenge.expiresInSeconds}
+              resendCooldownSeconds={otpChallenge.resendCooldownSeconds}
+              onBackToLogin={() => setOtpChallenge(null)}
+            />
+          ) : (
+            <>
+              <div className="mb-5 sm:mb-8">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+                  Create your account
+                </h1>
+                <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed">
+                  Start with the essentials. We&apos;ll shape your study plan together next.
+                </p>
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-[#080B14] px-3 text-zinc-500 font-medium tracking-wider">
-                  or continue with email
-                </span>
-              </div>
-            </div>
-          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-3.5 sm:space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1 sm:mb-1.5">
-                Full name
-              </label>
-              <div className="relative">
-                <UserRound className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                <input
-                  autoComplete="name"
-                  required
-                  minLength={2}
-                  maxLength={100}
-                  placeholder="Alex Johnson"
-                  value={fullName}
-                  onChange={(event) => setFullName(event.target.value)}
-                  className="w-full rounded-xl border border-zinc-800 bg-[#0E121E] pl-10 pr-4 py-2.5 sm:py-3 text-base sm:text-sm text-zinc-100 placeholder-zinc-500 transition-colors focus:border-indigo-500 focus:bg-[#121727] focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-            </div>
+              {/* Google One-Click Authentication */}
+              <div className="mb-5 sm:mb-6">
+                <GoogleSignInButton mode="signup" />
 
-            <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1 sm:mb-1.5">
-                Email address
-              </label>
-              <div className="relative">
-                <Mail className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                <input
-                  type="email"
-                  autoComplete="email"
-                  required
-                  placeholder="name@example.com"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  className="w-full rounded-xl border border-zinc-800 bg-[#0E121E] pl-10 pr-4 py-2.5 sm:py-3 text-base sm:text-sm text-zinc-100 placeholder-zinc-500 transition-colors focus:border-indigo-500 focus:bg-[#121727] focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
+                <div className="relative my-4 sm:my-5">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-zinc-800" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-[#080B14] px-3 text-zinc-500 font-medium tracking-wider">
+                      or continue with email
+                    </span>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1 sm:mb-1.5">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  required
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  className="w-full rounded-xl border border-zinc-800 bg-[#0E121E] pl-10 pr-11 py-2.5 sm:py-3 text-base sm:text-sm text-zinc-100 placeholder-zinc-500 transition-colors focus:border-indigo-500 focus:bg-[#121727] focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
+              <form onSubmit={handleSubmit} className="space-y-3.5 sm:space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1 sm:mb-1.5">
+                    Full name
+                  </label>
+                  <div className="relative">
+                    <UserRound className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                    <input
+                      autoComplete="name"
+                      required
+                      minLength={2}
+                      maxLength={100}
+                      placeholder="Alex Johnson"
+                      value={fullName}
+                      onChange={(event) => setFullName(event.target.value)}
+                      className="w-full rounded-xl border border-zinc-800 bg-[#0E121E] pl-10 pr-4 py-2.5 sm:py-3 text-base sm:text-sm text-zinc-100 placeholder-zinc-500 transition-colors focus:border-indigo-500 focus:bg-[#121727] focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1 sm:mb-1.5">
+                    Email address
+                  </label>
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                    <input
+                      type="email"
+                      autoComplete="email"
+                      required
+                      placeholder="name@example.com"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      className="w-full rounded-xl border border-zinc-800 bg-[#0E121E] pl-10 pr-4 py-2.5 sm:py-3 text-base sm:text-sm text-zinc-100 placeholder-zinc-500 transition-colors focus:border-indigo-500 focus:bg-[#121727] focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1 sm:mb-1.5">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      required
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      className="w-full rounded-xl border border-zinc-800 bg-[#0E121E] pl-10 pr-11 py-2.5 sm:py-3 text-base sm:text-sm text-zinc-100 placeholder-zinc-500 transition-colors focus:border-indigo-500 focus:bg-[#121727] focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200 transition-colors p-2 focus:outline-none"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1 sm:mb-1.5">
+                    Confirm password
+                  </label>
+                  <div className="relative">
+                    <Lock className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      required
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(event) => setConfirmPassword(event.target.value)}
+                      className="w-full rounded-xl border border-zinc-800 bg-[#0E121E] pl-10 pr-11 py-2.5 sm:py-3 text-base sm:text-sm text-zinc-100 placeholder-zinc-500 transition-colors focus:border-indigo-500 focus:bg-[#121727] focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200 transition-colors p-2 focus:outline-none"
+                      aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                    >
+                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-2.5 text-sm text-rose-300">
+                    {error}
+                  </div>
+                )}
+
                 <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200 transition-colors p-2 focus:outline-none"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 hover:from-indigo-400 hover:to-purple-500 active:scale-[0.99] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-1 sm:mt-2"
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {isSubmitting ? (
+                    <>
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                      <span>Creating account…</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Create account</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
                 </button>
-              </div>
-            </div>
+              </form>
 
-            <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1 sm:mb-1.5">
-                Confirm password
-              </label>
-              <div className="relative">
-                <Lock className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  required
-                  placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  className="w-full rounded-xl border border-zinc-800 bg-[#0E121E] pl-10 pr-11 py-2.5 sm:py-3 text-base sm:text-sm text-zinc-100 placeholder-zinc-500 transition-colors focus:border-indigo-500 focus:bg-[#121727] focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200 transition-colors p-2 focus:outline-none"
-                  aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+              <div className="mt-5 sm:mt-6 text-center text-xs sm:text-sm text-zinc-400">
+                Already have an account?{' '}
+                <Link
+                  href="/login"
+                  className="font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
                 >
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+                  Log in
+                </Link>
               </div>
-            </div>
-
-            {error && (
-              <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-2.5 text-sm text-rose-300">
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 hover:from-indigo-400 hover:to-purple-500 active:scale-[0.99] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-1 sm:mt-2"
-            >
-              {isSubmitting ? (
-                <>
-                  <LoaderCircle className="h-4 w-4 animate-spin" />
-                  <span>Creating account…</span>
-                </>
-              ) : (
-                <>
-                  <span>Create account</span>
-                  <ArrowRight className="h-4 w-4" />
-                </>
-              )}
-            </button>
-          </form>
-
-          <div className="mt-5 sm:mt-6 text-center text-xs sm:text-sm text-zinc-400">
-            Already have an account?{' '}
-            <Link
-              href="/login"
-              className="font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
-            >
-              Log in
-            </Link>
-          </div>
+            </>
+          )}
         </div>
       </div>
     </div>

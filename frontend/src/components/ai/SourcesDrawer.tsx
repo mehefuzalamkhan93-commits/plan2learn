@@ -645,9 +645,38 @@ export default function SourcesDrawer({
   };
 
   // Google Drive
+  const [isConnectingDrive, setIsConnectingDrive] = useState(false);
   const driveConnectUrl = driveStatus?.connect_url
     ? `${getApiBaseOrigin()}${driveStatus.connect_url}`
     : null;
+
+  const handleConnectDrive = async () => {
+    try {
+      setIsConnectingDrive(true);
+      const res = await aiAPI.getDriveConnectUrl();
+      if (res?.url) {
+        window.location.href = res.url;
+        return;
+      }
+      // Fallback: direct redirect with token query param if available
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      if (token && driveConnectUrl) {
+        window.location.href = `${driveConnectUrl}?token=${encodeURIComponent(token)}`;
+        return;
+      }
+      if (driveConnectUrl) {
+        window.location.href = driveConnectUrl;
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Google Drive error',
+        description: err?.response?.data?.detail || 'Failed to start Google Drive connection.',
+        variant: 'error',
+      });
+    } finally {
+      setIsConnectingDrive(false);
+    }
+  };
 
   const handleOpenDriveFiles = async () => {
     setIsLoadingDriveFiles(true);
@@ -1220,13 +1249,19 @@ export default function SourcesDrawer({
           {driveStatus && driveStatus.enabled && driveStatus.configured && !driveStatus.connected && (
             <div className="space-y-2.5">
               <p className="text-[11px] leading-relaxed text-zinc-400">{driveStatus.message}</p>
-              <a
-                href={driveConnectUrl || '#'}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-600/20 px-3 py-2 text-xs font-medium text-blue-300 transition-colors hover:bg-blue-600/30"
+              <button
+                type="button"
+                onClick={handleConnectDrive}
+                disabled={isConnectingDrive}
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-600/20 px-3 py-2 text-xs font-medium text-blue-300 transition-colors hover:bg-blue-600/30 disabled:opacity-50"
               >
-                <Folder className="h-3.5 w-3.5" />
+                {isConnectingDrive ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Folder className="h-3.5 w-3.5" />
+                )}
                 Connect Google Account
-              </a>
+              </button>
             </div>
           )}
 

@@ -17,7 +17,7 @@ from app.core.security import (
     register_or_rotate_session,
     verify_password,
 )
-from app.models.user import StudentProfile, User, UserSession
+from app.models.user import OTPChallenge, StudentProfile, User, UserSession
 from app.schemas.auth import (
     AuthData,
     AuthResponse,
@@ -27,9 +27,20 @@ from app.schemas.auth import (
     FullProfileResponse,
     GoogleAuthRequest,
     LoginRequest,
+    OTPChallengeData,
     ProfileUpdateRequest,
+    ResendOTPRequest,
     SignupRequest,
     UserOut,
+    VerifyOTPRequest,
+)
+from app.services.email import EmailDeliveryError, send_otp_email
+from app.services.otp import (
+    OTPVerificationError,
+    create_otp_challenge,
+    mask_email,
+    resend_otp_challenge,
+    verify_otp_challenge,
 )
 
 logger = logging.getLogger(__name__)
@@ -45,6 +56,8 @@ def get_current_user(
     auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
     if auth_header and auth_header.lower().startswith("bearer "):
         token = auth_header[7:].strip()
+    elif request.query_params.get("token"):
+        token = request.query_params.get("token", "").strip()
     else:
         token = access_token
 
@@ -79,11 +92,11 @@ def get_current_user(
 
 
 @router.post("/signup", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
-def signup(
+async def signup(
     payload: SignupRequest,
     request: Request,
-    response: Response,
     db: Session = Depends(get_db),
+    settings: AISettings = Depends(get_ai_settings),
 ) -> AuthResponse:
     if payload.password != payload.confirm_password:
         raise HTTPException(
@@ -103,6 +116,7 @@ def signup(
         email=payload.email.lower(),
         hashed_password=hashed,
         full_name=payload.full_name,
+        is_active=True,
         is_onboarded=False,
     )
     db.add(user)
@@ -120,35 +134,62 @@ def signup(
         score_goal=85,
     )
     db.add(default_profile)
+    db.flush()
+
+    device_info = extract_device_info(request)
+    challenge, plain_otp = create_otp_challenge(
+        db,
+        user=user,
+        purpose="signup",
+        device_info=device_info,
+        settings=settings,
+    )
+
+    try:
+        await send_otp_email(
+            to_email=user.email,
+            otp_code=plain_otp,
+            user_name=user.full_name,
+            settings=settings,
+        )
+    except EmailDeliveryError as exc:
+        db.rollback()
+        logger.error("Failed to send signup OTP email to %s: %s", user.email, exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Unable to send verification email: {exc.message}",
+        )
+
     db.commit()
     db.refresh(user)
 
-    device_info = extract_device_info(request)
-    session = register_or_rotate_session(db, user.id, **device_info)
-    token = create_access_token(data={"sub": user.id, "sid": session.id})
-    response.set_cookie(
-        key="access_token",
-        value=token,
-        httponly=True,
-        samesite="none" if get_ai_settings().app_env.lower() != "development" else "lax",
-        secure=get_ai_settings().app_env.lower() != "development",
-        max_age=7 * 24 * 3600,
-    )
+    expires_in_seconds = settings.otp_expire_minutes * 60
+    cooldown_seconds = settings.otp_resend_cooldown_seconds
+    masked = mask_email(user.email)
 
-    user_out = UserOut.model_validate(user)
     return AuthResponse(
         success=True,
-        data=AuthData(user=user_out, access_token=token),
-        message="Account created successfully.",
+        requires_otp=True,
+        challenge_id=challenge.id,
+        masked_email=masked,
+        expires_in_seconds=expires_in_seconds,
+        resend_cooldown_seconds=cooldown_seconds,
+        data=OTPChallengeData(
+            challenge_id=challenge.id,
+            masked_email=masked,
+            expires_in_seconds=expires_in_seconds,
+            resend_cooldown_seconds=cooldown_seconds,
+        ),
+        message=f"Account created. A 6-digit verification code was sent to {masked}.",
     )
 
 
 @router.post("/login", response_model=AuthResponse)
-def login(
+async def login(
     payload: LoginRequest,
     request: Request,
-    response: Response,
     db: Session = Depends(get_db),
+    settings: AISettings = Depends(get_ai_settings),
 ) -> AuthResponse:
     user = db.query(User).filter(User.email == payload.email.lower()).first()
     if not user or not verify_password(payload.password, user.hashed_password):
@@ -157,15 +198,94 @@ def login(
             detail="Invalid email or password",
         )
 
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is inactive. Please contact support.",
+        )
+
     device_info = extract_device_info(request)
+    challenge, plain_otp = create_otp_challenge(
+        db,
+        user=user,
+        purpose="login",
+        device_info=device_info,
+        settings=settings,
+    )
+
+    try:
+        await send_otp_email(
+            to_email=user.email,
+            otp_code=plain_otp,
+            user_name=user.full_name,
+            settings=settings,
+        )
+    except EmailDeliveryError as exc:
+        logger.error("Failed to send login OTP email to %s: %s", user.email, exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Unable to send verification email: {exc.message}",
+        )
+
+    expires_in_seconds = settings.otp_expire_minutes * 60
+    cooldown_seconds = settings.otp_resend_cooldown_seconds
+    masked = mask_email(user.email)
+
+    return AuthResponse(
+        success=True,
+        requires_otp=True,
+        challenge_id=challenge.id,
+        masked_email=masked,
+        expires_in_seconds=expires_in_seconds,
+        resend_cooldown_seconds=cooldown_seconds,
+        data=OTPChallengeData(
+            challenge_id=challenge.id,
+            masked_email=masked,
+            expires_in_seconds=expires_in_seconds,
+            resend_cooldown_seconds=cooldown_seconds,
+        ),
+        message=f"A 6-digit verification code was sent to {masked}.",
+    )
+
+
+@router.post("/verify-otp", response_model=AuthResponse)
+def verify_otp(
+    payload: VerifyOTPRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    settings: AISettings = Depends(get_ai_settings),
+) -> AuthResponse:
+    try:
+        challenge = verify_otp_challenge(db, payload.challenge_id, payload.otp)
+    except OTPVerificationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=exc.message,
+        )
+
+    user = db.query(User).filter(User.id == challenge.user_id).first()
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Account is inactive or not found.",
+        )
+
+    device_info = {
+        "device_id": challenge.device_id or "unknown",
+        "device_name": challenge.device_name or "Unknown Device",
+        "device_type": challenge.device_type or "desktop",
+        "ip_address": challenge.ip_address or (request.client.host if request.client else None),
+    }
+
     session = register_or_rotate_session(db, user.id, **device_info)
     token = create_access_token(data={"sub": user.id, "sid": session.id})
     response.set_cookie(
         key="access_token",
         value=token,
         httponly=True,
-        samesite="none" if get_ai_settings().app_env.lower() != "development" else "lax",
-        secure=get_ai_settings().app_env.lower() != "development",
+        samesite="none" if settings.app_env.lower() != "development" else "lax",
+        secure=settings.app_env.lower() != "development",
         max_age=7 * 24 * 3600,
     )
 
@@ -173,7 +293,61 @@ def login(
     return AuthResponse(
         success=True,
         data=AuthData(user=user_out, access_token=token),
-        message="Login successful.",
+        message="Verification successful. Welcome to Plan2Learn!",
+    )
+
+
+@router.post("/resend-otp", response_model=AuthResponse)
+async def resend_otp(
+    payload: ResendOTPRequest,
+    db: Session = Depends(get_db),
+    settings: AISettings = Depends(get_ai_settings),
+) -> AuthResponse:
+    try:
+        new_challenge, plain_otp = resend_otp_challenge(db, payload.challenge_id, settings=settings)
+    except OTPVerificationError as exc:
+        status_code = (
+            status.HTTP_429_TOO_MANY_REQUESTS
+            if exc.code == "resend_cooldown"
+            else status.HTTP_400_BAD_REQUEST
+        )
+        raise HTTPException(
+            status_code=status_code,
+            detail=exc.message,
+        )
+
+    user = db.query(User).filter(User.id == new_challenge.user_id).first()
+    try:
+        await send_otp_email(
+            to_email=new_challenge.email,
+            otp_code=plain_otp,
+            user_name=user.full_name if user else None,
+            settings=settings,
+        )
+    except EmailDeliveryError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Unable to resend verification email: {exc.message}",
+        )
+
+    expires_in_seconds = settings.otp_expire_minutes * 60
+    cooldown_seconds = settings.otp_resend_cooldown_seconds
+    masked = mask_email(new_challenge.email)
+
+    return AuthResponse(
+        success=True,
+        requires_otp=True,
+        challenge_id=new_challenge.id,
+        masked_email=masked,
+        expires_in_seconds=expires_in_seconds,
+        resend_cooldown_seconds=cooldown_seconds,
+        data=OTPChallengeData(
+            challenge_id=new_challenge.id,
+            masked_email=masked,
+            expires_in_seconds=expires_in_seconds,
+            resend_cooldown_seconds=cooldown_seconds,
+        ),
+        message=f"A fresh 6-digit verification code was sent to {masked}.",
     )
 
 

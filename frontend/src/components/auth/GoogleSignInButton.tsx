@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
-import { authAPI } from '@/services/api';
+import { authAPI, aiAPI } from '@/services/api';
 import { getSafeNextRoute } from '@/lib/authRouting';
 import { useSplash } from '@/context/SplashContext';
 
@@ -48,6 +48,21 @@ export default function GoogleSignInButton({
         const result = await authAPI.googleLogin(response.credential);
         const user = result.data.user;
         onSuccess?.();
+
+        // Check if Google Drive can be auto-connected for this Google user
+        try {
+          const driveStatus = await aiAPI.getDriveStatus();
+          if (driveStatus?.enabled && driveStatus?.configured && !driveStatus?.connected) {
+            const connectRes = await aiAPI.getDriveConnectUrl();
+            if (connectRes?.url) {
+              window.location.href = connectRes.url;
+              return;
+            }
+          }
+        } catch {
+          // Non-critical: continue to normal navigation if drive check fails
+        }
+
         const next =
           typeof window !== 'undefined'
             ? new URLSearchParams(window.location.search).get('next')

@@ -25,6 +25,24 @@ export interface AuthenticatedUser {
   has_student_profile: boolean;
 }
 
+export interface OTPChallengeResponse {
+  success: boolean;
+  requires_otp?: boolean;
+  challenge_id?: string;
+  masked_email?: string;
+  expires_in_seconds?: number;
+  resend_cooldown_seconds?: number;
+  message?: string;
+  data?: {
+    user?: AuthenticatedUser;
+    access_token?: string;
+    challenge_id?: string;
+    masked_email?: string;
+    expires_in_seconds?: number;
+    resend_cooldown_seconds?: number;
+  };
+}
+
 export interface DeviceSession {
   id: string;
   device_id?: string;

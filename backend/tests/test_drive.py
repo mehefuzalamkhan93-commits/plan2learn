@@ -123,6 +123,10 @@ def signup_user(client: SyncASGITestClient, email: str = "drive_user@example.com
     assert resp.status_code == 201
     with client.session_factory() as db:
         user = db.query(User).filter(User.email == email).first()
+        from app.core.security import create_access_token, register_or_rotate_session
+        session = register_or_rotate_session(db, user.id, device_id="test-drive-device", device_name="Test Device", device_type="desktop")
+        token = create_access_token({"sub": user.id, "sid": session.id})
+        client.cookies["access_token"] = token
         db.expunge(user)
     return user
 
@@ -333,16 +337,8 @@ def test_callback_rejects_state_from_other_session(drive_client) -> None:
 
     # Fresh session logged in as user B
     client_b = SyncASGITestClient(drive_client.app)
-    signup_resp = client_b.post(
-        "/api/v1/auth/signup",
-        json={
-            "full_name": "Callback Impersonator",
-            "email": "impersonator@example.com",
-            "password": "Password123!",
-            "confirm_password": "Password123!",
-        },
-    )
-    assert signup_resp.status_code == 201
+    client_b.session_factory = drive_client.session_factory
+    user_b = signup_user(client_b, "impersonator@example.com")
 
     resp = client_b.get(
         "/api/v1/ai/drive/callback",
@@ -419,18 +415,8 @@ def test_other_user_cannot_use_connected_account(drive_client) -> None:
 
     # Fresh session for user B
     client_b_client = SyncASGITestClient(drive_client.app)
-    signup_resp = client_b_client.post(
-        "/api/v1/auth/signup",
-        json={
-            "full_name": "Other User",
-            "email": "user_b@example.com",
-            "password": "Password123!",
-            "confirm_password": "Password123!",
-        },
-    )
-    assert signup_resp.status_code == 201
-    # Now authenticate user B in that client (grab cookie from signup)
-    # (signup set the cookie already)
+    client_b_client.session_factory = drive_client.session_factory
+    user_b = signup_user(client_b_client, "user_b@example.com")
 
     # User B must see connected=False
     status_b = client_b_client.get("/api/v1/ai/drive/status")
@@ -740,16 +726,8 @@ def test_import_requires_notebook_ownership(drive_client) -> None:
 
     # A different user attempts to import into user's notebook
     other_client = SyncASGITestClient(drive_client.app)
-    signup_resp = other_client.post(
-        "/api/v1/auth/signup",
-        json={
-            "full_name": "Import Intruder",
-            "email": "intruder@example.com",
-            "password": "Password123!",
-            "confirm_password": "Password123!",
-        },
-    )
-    assert signup_resp.status_code == 201
+    other_client.session_factory = drive_client.session_factory
+    other_user = signup_user(other_client, "intruder@example.com")
 
     resp = other_client.post(
         "/api/v1/ai/drive/import", json={"file_id": "file-x", "notebook_id": nb.id}

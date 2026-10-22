@@ -176,6 +176,28 @@ async def drive_status(
 # OAuth flow start
 # ---------------------------------------------------------------------------
 
+@router.get("/connect-url")
+async def drive_connect_url(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    settings: AISettings = Depends(drive_settings_dep),
+) -> dict[str, str]:
+    """Return Google consent URL in JSON for client-side navigation."""
+    if not settings.google_drive_enabled:
+        raise HTTPException(status_code=403, detail="Google Drive integration is disabled (GOOGLE_DRIVE_ENABLED).")
+    if not gd.is_configured(settings):
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Google Drive OAuth is not configured on the server. Set GOOGLE_DRIVE_CLIENT_ID, "
+                "GOOGLE_DRIVE_CLIENT_SECRET and GOOGLE_DRIVE_REDIRECT_URI in the backend .env."
+            ),
+        )
+    state = gd.create_oauth_state(db, current_user.id, settings)
+    auth_url = gd.build_auth_url(settings, state)
+    return {"url": auth_url}
+
+
 @router.get("/connect")
 async def drive_connect(
     current_user: User = Depends(get_current_user),

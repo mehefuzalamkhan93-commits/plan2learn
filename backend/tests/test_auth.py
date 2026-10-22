@@ -1,4 +1,5 @@
 import asyncio
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
@@ -63,20 +64,36 @@ def client_and_db():
 
 
 def test_signup_creates_account_and_sets_cookie(client_and_db):
-    client, _ = client_and_db
+    client, TestingSession = client_and_db
+    captured = {}
+
+    async def fake_send(to_email, otp_code, **kwargs):
+        captured["otp"] = otp_code
+        return {"id": "msg_1"}
+
     payload = {
         "full_name": "Test Student",
         "email": "student@example.com",
         "password": "Password123!",
         "confirm_password": "Password123!",
     }
-    response = client.post("/api/v1/auth/signup", json=payload)
-    assert response.status_code == 201
-    res_data = response.json()
-    assert res_data["success"] is True
-    assert res_data["data"]["user"]["email"] == "student@example.com"
-    assert res_data["data"]["user"]["is_onboarded"] is False
-    assert "access_token" in response.cookies
+    with patch("app.api.auth.send_otp_email", side_effect=fake_send):
+        response = client.post("/api/v1/auth/signup", json=payload)
+        assert response.status_code == 201
+        res_data = response.json()
+        assert res_data["success"] is True
+        assert res_data["requires_otp"] is True
+        challenge_id = res_data["challenge_id"]
+
+    verify_res = client.post(
+        "/api/v1/auth/verify-otp",
+        json={"challenge_id": challenge_id, "otp": captured["otp"]},
+    )
+    assert verify_res.status_code == 200
+    verify_data = verify_res.json()
+    assert verify_data["data"]["user"]["email"] == "student@example.com"
+    assert verify_data["data"]["user"]["is_onboarded"] is False
+    assert "access_token" in client.cookies
 
 
 def test_signup_duplicate_email_does_not_reveal_account_existence(client_and_db):
@@ -87,27 +104,48 @@ def test_signup_duplicate_email_does_not_reveal_account_existence(client_and_db)
         "password": "Password123!",
         "confirm_password": "Password123!",
     }
-    client.post("/api/v1/auth/signup", json=payload)
-    response = client.post("/api/v1/auth/signup", json=payload)
-    assert response.status_code == 400
-    assert response.json()["detail"] == "Unable to create an account with the provided details."
+    with patch("app.api.auth.send_otp_email", new_callable=AsyncMock):
+        client.post("/api/v1/auth/signup", json=payload)
+        response = client.post("/api/v1/auth/signup", json=payload)
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Unable to create an account with the provided details."
 
 
 def test_login_success_and_me_endpoint(client_and_db):
     client, _ = client_and_db
+    captured = {}
+
+    async def fake_send(to_email, otp_code, **kwargs):
+        captured["otp"] = otp_code
+        return {"id": "msg_1"}
+
     signup_payload = {
         "full_name": "Login Student",
         "email": "login@example.com",
         "password": "Password123!",
         "confirm_password": "Password123!",
     }
-    client.post("/api/v1/auth/signup", json=signup_payload)
+    with patch("app.api.auth.send_otp_email", side_effect=fake_send):
+        signup_res = client.post("/api/v1/auth/signup", json=signup_payload)
+        client.post(
+            "/api/v1/auth/verify-otp",
+            json={"challenge_id": signup_res.json()["challenge_id"], "otp": captured["otp"]},
+        )
 
-    login_response = client.post(
-        "/api/v1/auth/login",
-        json={"email": "login@example.com", "password": "Password123!"},
-    )
-    assert login_response.status_code == 200
+        login_response = client.post(
+            "/api/v1/auth/login",
+            json={"email": "login@example.com", "password": "Password123!"},
+        )
+        assert login_response.status_code == 200
+        login_data = login_response.json()
+        assert login_data["requires_otp"] is True
+
+        verify_login = client.post(
+            "/api/v1/auth/verify-otp",
+            json={"challenge_id": login_data["challenge_id"], "otp": captured["otp"]},
+        )
+        assert verify_login.status_code == 200
+
     me_response = client.get("/api/v1/auth/me")
     assert me_response.status_code == 200
     assert me_response.json()["data"]["email"] == "login@example.com"
@@ -127,14 +165,25 @@ def test_update_profile_persists_subjects_and_exam_date(client_and_db):
     the AI prompt builder read back.
     """
     client, _ = client_and_db
+    captured = {}
+
+    async def fake_send(to_email, otp_code, **kwargs):
+        captured["otp"] = otp_code
+        return {"id": "msg_1"}
+
     signup_payload = {
         "full_name": "Persistence Student",
         "email": "persist@example.com",
         "password": "Password123!",
         "confirm_password": "Password123!",
     }
-    signup = client.post("/api/v1/auth/signup", json=signup_payload)
-    assert signup.status_code == 201, signup.text
+    with patch("app.api.auth.send_otp_email", side_effect=fake_send):
+        signup = client.post("/api/v1/auth/signup", json=signup_payload)
+        assert signup.status_code == 201, signup.text
+        client.post(
+            "/api/v1/auth/verify-otp",
+            json={"challenge_id": signup.json()["challenge_id"], "otp": captured["otp"]},
+        )
 
     update = client.put(
         "/api/v1/auth/profile",

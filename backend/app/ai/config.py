@@ -52,6 +52,13 @@ class AISettings(BaseSettings):
     # Where the OAuth callback redirects the browser afterwards.
     frontend_base_url: str = "https://plan2learn-ashen.vercel.app"
 
+    # Resend Email & OTP Authentication
+    resend_api_key: str | None = Field(default=None, repr=False)
+    email_from: str = "Plan2Learn <noreply@plan2learn.online>"
+    otp_expire_minutes: int = Field(default=5, ge=1, le=60)
+    otp_max_attempts: int = Field(default=5, ge=1, le=10)
+    otp_resend_cooldown_seconds: int = Field(default=60, ge=10, le=300)
+
     @field_validator("ai_task_models", mode="before")
     @classmethod
     def normalize_task_model_keys(cls, value: object) -> object:

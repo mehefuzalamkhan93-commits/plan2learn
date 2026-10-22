@@ -32,9 +32,30 @@ class AuthData(BaseModel):
     token_type: str = "bearer"
 
 
+class VerifyOTPRequest(BaseModel):
+    challenge_id: str = Field(..., min_length=1)
+    otp: str = Field(..., min_length=6, max_length=6)
+
+
+class ResendOTPRequest(BaseModel):
+    challenge_id: str = Field(..., min_length=1)
+
+
+class OTPChallengeData(BaseModel):
+    challenge_id: str
+    masked_email: str
+    expires_in_seconds: int = 300
+    resend_cooldown_seconds: int = 60
+
+
 class AuthResponse(BaseModel):
     success: bool
-    data: AuthData | UserOut | None = None
+    data: AuthData | UserOut | OTPChallengeData | None = None
+    requires_otp: bool = False
+    challenge_id: str | None = None
+    masked_email: str | None = None
+    expires_in_seconds: int | None = None
+    resend_cooldown_seconds: int | None = None
     message: str = ""
 
 

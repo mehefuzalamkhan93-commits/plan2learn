@@ -40,25 +40,41 @@ def sync_app():
     return client
 
 
+from unittest.mock import AsyncMock, patch
+
+
 def test_max_two_devices_fifo_eviction(sync_app):
+    captured = {}
+
+    async def fake_send(to_email, otp_code, **kwargs):
+        captured["otp"] = otp_code
+        return {"id": "1"}
+
     # 1. Sign up user on Device A (e.g. PC)
     headers_device_a = {
         "x-device-id": "pc-device-1234",
         "x-device-name": "Chrome on Windows",
         "x-device-type": "desktop",
     }
-    signup_resp = sync_app.post(
-        "/api/v1/auth/signup",
-        json={
-            "full_name": "Multi Device Tester",
-            "email": "multidevice@example.com",
-            "password": "Password123!",
-            "confirm_password": "Password123!",
-        },
-        headers=headers_device_a,
-    )
-    assert signup_resp.status_code == 201
-    token_a = signup_resp.json()["data"]["access_token"]
+    with patch("app.api.auth.send_otp_email", side_effect=fake_send):
+        signup_resp = sync_app.post(
+            "/api/v1/auth/signup",
+            json={
+                "full_name": "Multi Device Tester",
+                "email": "multidevice@example.com",
+                "password": "Password123!",
+                "confirm_password": "Password123!",
+            },
+            headers=headers_device_a,
+        )
+        assert signup_resp.status_code == 201
+        verify_a = sync_app.post(
+            "/api/v1/auth/verify-otp",
+            json={"challenge_id": signup_resp.json()["challenge_id"], "otp": captured["otp"]},
+            headers=headers_device_a,
+        )
+        assert verify_a.status_code == 200
+        token_a = verify_a.json()["data"]["access_token"]
 
     # Device A can access /sync/status
     resp_a = sync_app.get("/api/v1/sync/status", headers={"Authorization": f"Bearer {token_a}"})
@@ -71,16 +87,23 @@ def test_max_two_devices_fifo_eviction(sync_app):
         "x-device-name": "Safari on iPhone",
         "x-device-type": "mobile",
     }
-    login_b = sync_app.post(
-        "/api/v1/auth/login",
-        json={
-            "email": "multidevice@example.com",
-            "password": "Password123!",
-        },
-        headers=headers_device_b,
-    )
-    assert login_b.status_code == 200
-    token_b = login_b.json()["data"]["access_token"]
+    with patch("app.api.auth.send_otp_email", side_effect=fake_send):
+        login_b = sync_app.post(
+            "/api/v1/auth/login",
+            json={
+                "email": "multidevice@example.com",
+                "password": "Password123!",
+            },
+            headers=headers_device_b,
+        )
+        assert login_b.status_code == 200
+        verify_b = sync_app.post(
+            "/api/v1/auth/verify-otp",
+            json={"challenge_id": login_b.json()["challenge_id"], "otp": captured["otp"]},
+            headers=headers_device_b,
+        )
+        assert verify_b.status_code == 200
+        token_b = verify_b.json()["data"]["access_token"]
 
     # Both Device A and Device B are valid (count = 2)
     resp_b = sync_app.get("/api/v1/sync/status", headers={"Authorization": f"Bearer {token_b}"})
@@ -97,16 +120,23 @@ def test_max_two_devices_fifo_eviction(sync_app):
         "x-device-name": "Chrome on iPad",
         "x-device-type": "tablet",
     }
-    login_c = sync_app.post(
-        "/api/v1/auth/login",
-        json={
-            "email": "multidevice@example.com",
-            "password": "Password123!",
-        },
-        headers=headers_device_c,
-    )
-    assert login_c.status_code == 200
-    token_c = login_c.json()["data"]["access_token"]
+    with patch("app.api.auth.send_otp_email", side_effect=fake_send):
+        login_c = sync_app.post(
+            "/api/v1/auth/login",
+            json={
+                "email": "multidevice@example.com",
+                "password": "Password123!",
+            },
+            headers=headers_device_c,
+        )
+        assert login_c.status_code == 200
+        verify_c = sync_app.post(
+            "/api/v1/auth/verify-otp",
+            json={"challenge_id": login_c.json()["challenge_id"], "otp": captured["otp"]},
+            headers=headers_device_c,
+        )
+        assert verify_c.status_code == 200
+        token_c = verify_c.json()["data"]["access_token"]
 
     # Device C is active (count = 2)
     resp_c = sync_app.get("/api/v1/sync/status", headers={"Authorization": f"Bearer {token_c}"})
@@ -123,22 +153,36 @@ def test_max_two_devices_fifo_eviction(sync_app):
 
 
 def test_device_manual_revocation(sync_app):
+    captured = {}
+
+    async def fake_send(to_email, otp_code, **kwargs):
+        captured["otp"] = otp_code
+        return {"id": "1"}
+
     headers = {
         "x-device-id": "pc-revoke-test",
         "x-device-name": "Firefox on Linux",
         "x-device-type": "desktop",
     }
-    signup_resp = sync_app.post(
-        "/api/v1/auth/signup",
-        json={
-            "full_name": "Revoke Tester",
-            "email": "revoke@example.com",
-            "password": "Password123!",
-            "confirm_password": "Password123!",
-        },
-        headers=headers,
-    )
-    token = signup_resp.json()["data"]["access_token"]
+    with patch("app.api.auth.send_otp_email", side_effect=fake_send):
+        signup_resp = sync_app.post(
+            "/api/v1/auth/signup",
+            json={
+                "full_name": "Revoke Tester",
+                "email": "revoke@example.com",
+                "password": "Password123!",
+                "confirm_password": "Password123!",
+            },
+            headers=headers,
+        )
+        assert signup_resp.status_code == 201
+        verify = sync_app.post(
+            "/api/v1/auth/verify-otp",
+            json={"challenge_id": signup_resp.json()["challenge_id"], "otp": captured["otp"]},
+            headers=headers,
+        )
+        assert verify.status_code == 200
+        token = verify.json()["data"]["access_token"]
 
     devices_resp = sync_app.get("/api/v1/auth/devices", headers={"Authorization": f"Bearer {token}"})
     assert devices_resp.status_code == 200
