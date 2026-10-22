@@ -62,6 +62,16 @@ def create_app(settings: AISettings | None = None) -> FastAPI:
     # injection friendly) with the global env config as the production default.
     application.state.google_drive_settings = ai_settings
 
+    @application.get("/", tags=["system"])
+    async def root() -> dict[str, Any]:
+        return {
+            "name": "Plan2Learn API",
+            "status": "online",
+            "docs": "/docs",
+            "health": "/api/v1/health",
+            "version": "0.1.0",
+        }
+
     @application.get("/health", response_model=HealthResponse, tags=["system"])
     @application.get("/api/v1/health", response_model=HealthResponse, tags=["system"])
     async def health_check() -> HealthResponse:
