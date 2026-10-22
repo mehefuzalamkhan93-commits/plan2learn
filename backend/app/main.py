@@ -30,9 +30,10 @@ def create_app(settings: AISettings | None = None) -> FastAPI:
     ai_settings = settings or get_ai_settings()
     provider_router = AIProviderRouter(ai_settings)
     application = FastAPI(
-        title="Smart Learning Planner API",
+        title="Plan2Learn API",
         version="0.1.0",
     )
+
     development_origins = (
         [
             "http://localhost:3000",

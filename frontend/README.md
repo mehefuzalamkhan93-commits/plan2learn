@@ -1,4 +1,5 @@
-# Smart Learning Planner - Frontend
+# Plan2Learn - Frontend
+
 
 Modern, AI-powered adaptive study platform built with Next.js 14, Tailwind CSS, and Zustand.
 

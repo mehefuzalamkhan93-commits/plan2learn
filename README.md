@@ -1,4 +1,5 @@
-# Smart Learning Planner - AI-Driven Adaptive SaaS
+# Plan2Learn - AI-Driven Adaptive SaaS
+
 
 ## Product Overview
 An AI-powered adaptive study platform for students preparing for competitive and board exams. It generates dynamic, time-boxed study timetables using spaced repetition (SM-2), tracks confidence, recalculates schedules when tasks are missed (<70%), predicts exam readiness via regression, and provides real-time collaborative Pomodoro study rooms.

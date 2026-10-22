@@ -62,7 +62,8 @@ export default function SignupPage() {
             <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
           </div>
           <div>
-            <span className="text-sm sm:text-base font-bold tracking-tight text-white">Smart Learning Planner</span>
+            <span className="text-sm sm:text-base font-bold tracking-tight text-white">Plan2Learn</span>
+
             <span className="hidden sm:inline-block ml-2 rounded-full bg-indigo-500/20 px-2 py-0.5 text-[11px] font-medium text-indigo-300 border border-indigo-500/30">
               AI-Powered
             </span>

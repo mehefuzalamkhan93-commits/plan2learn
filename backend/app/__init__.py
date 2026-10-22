@@ -1,1 +1,1 @@
-"""Smart Learning Planner backend application."""
+"""Plan2Learn backend application."""

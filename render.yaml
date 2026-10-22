@@ -1,6 +1,7 @@
 services:
   - type: web
-    name: smart-learning-planner-backend
+    name: plan2learn-backend
+
     env: python
     region: singapore # Closest to AWS ap-south-1 (Mumbai) for low latency to Turso
     plan: free

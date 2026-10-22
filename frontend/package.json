@@ -1,5 +1,6 @@
 {
-  "name": "smart-learning-planner-frontend",
+  "name": "plan2learn-frontend",
+
   "version": "0.1.0",
   "private": true,
   "scripts": {

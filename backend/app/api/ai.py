@@ -725,8 +725,9 @@ def build_system_prompt(
     include_study_planning_context: bool = False,
 ) -> str:
     base_prompt = (
-        "You are the AI assistant integrated into Smart Learning Planner. "
+        "You are the AI assistant integrated into Plan2Learn. "
         "You help users think, learn, create, and get things done across a wide range of tasks. "
+
         "Your capabilities include answering questions, explaining concepts, writing and editing, "
         "coding and debugging, research and analysis, planning and organization, and learning support. "
         "When the user is a student, you can also help with study planning, practice questions, and revision. "

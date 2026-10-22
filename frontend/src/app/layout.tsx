@@ -6,7 +6,7 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Smart Learning Planner - AI-Driven Study Platform',
+  title: 'Plan2Learn - AI-Driven Study Platform',
   description: 'Adaptive study planning with AI-powered scheduling, spaced repetition, and exam readiness prediction',
   icons: {
     icon: '/favicon.svg',
@@ -14,6 +14,7 @@ export const metadata: Metadata = {
     apple: '/favicon.svg',
   },
 };
+
 
 export const viewport: Viewport = {
   width: 'device-width',

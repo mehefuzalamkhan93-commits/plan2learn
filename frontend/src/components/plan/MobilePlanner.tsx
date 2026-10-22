@@ -203,13 +203,13 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
   const handleShare = async () => {
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const todayList = tasks.filter((t) => t.scheduled_date === todayStr);
-    const text = `My Smart Learning Plan (${format(new Date(), 'MMM d, yyyy')}):\n` +
+    const text = `My Plan2Learn Plan (${format(new Date(), 'MMM d, yyyy')}):\n` +
       todayList.map((t) => `• [${t.scheduled_time}] ${t.topic_name} (${t.subject})`).join('\n');
 
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'My Smart Learning Plan',
+          title: 'My Plan2Learn Plan',
           text,
         });
         return;

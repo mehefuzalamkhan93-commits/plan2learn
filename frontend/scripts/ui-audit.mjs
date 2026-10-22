@@ -1,5 +1,5 @@
 /**
- * Real-browser UI audit for Smart Learning Planner.
+ * Real-browser UI audit for Plan2Learn.
  *
  * Verifies (with screenshots + computed-style metrics) in both Light and Dark:
  *  - Settings modal fits viewport, body scrolls independently, background locked

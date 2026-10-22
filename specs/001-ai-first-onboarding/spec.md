@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: User description: "Create the first major feature specification for Smart Learning Planner. Feature name: Authentication → Student Onboarding → AI-First Learning Setup. Defines the first-time user journey from Signup to Dashboard via AI-First Learning Setup."
+**Input**: User description: "Create the first major feature specification for Plan2Learn. Feature name: Authentication → Student Onboarding → AI-First Learning Setup. Defines the first-time user journey from Signup to Dashboard via AI-First Learning Setup."
 
 ## User Scenarios & Testing *(mandatory)*
 

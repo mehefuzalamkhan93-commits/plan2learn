@@ -1,5 +1,5 @@
 """
-Comprehensive Acceptance Audit Script for Smart Learning Planner AI Study Notebook.
+Comprehensive Acceptance Audit Script for Plan2Learn AI Study Notebook.
 Verifies all 6 acceptance categories end to end.
 """
 
@@ -100,7 +100,7 @@ def generate_txt_bytes() -> bytes:
 
 def run_acceptance_audit():
     print("=" * 70)
-    print("STARTING SMART LEARNING PLANNER AI STUDY NOTEBOOK ACCEPTANCE AUDIT")
+    print("STARTING PLAN2LEARN AI STUDY NOTEBOOK ACCEPTANCE AUDIT")
     print("=" * 70)
 
     db = SessionLocal()

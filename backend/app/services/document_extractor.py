@@ -521,7 +521,7 @@ async def safe_fetch_url(
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/124.0.0.0 Safari/537.36 SmartLearningPlanner/1.0"
+                "Chrome/124.0.0.0 Safari/537.36 Plan2Learn/1.0"
             ),
             "Accept": "text/html,application/xhtml+xml,application/xml,text/plain,application/pdf,*/*;q=0.8",
         }

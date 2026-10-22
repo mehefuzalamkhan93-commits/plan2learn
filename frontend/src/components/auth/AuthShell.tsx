@@ -19,8 +19,9 @@ export default function AuthShell({ title, description, footer, children }: Auth
           className="mb-8 inline-flex items-center gap-2 text-sm text-zinc-400 transition-colors hover:text-zinc-100"
         >
           <ArrowLeft className="h-4 w-4" />
-          Smart Learning Planner
+          Plan2Learn
         </Link>
+
 
         <div className="rounded-xl border border-white/[0.09] bg-zinc-900/65 p-6 shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-8">
           <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-lg border border-indigo-300/15 bg-indigo-400/[0.08] text-indigo-200">
