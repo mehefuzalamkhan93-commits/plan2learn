@@ -165,6 +165,7 @@ export default function MobileAIAssistant({
   const [showMoreMenu, setShowMoreMenu] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // ---------------------------------------------------------------------------
@@ -266,17 +267,32 @@ export default function MobileAIAssistant({
   };
 
   // ---------------------------------------------------------------------------
-  // Scroll to bottom
+  // Scroll to bottom (only scrolls the chat messages container, NEVER the window)
   // ---------------------------------------------------------------------------
   const scrollToBottom = useCallback((smooth = true) => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto',
+      });
+    } else if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'nearest' });
     }
   }, []);
 
+  // Only auto-scroll when messages exist; NEVER scroll on initial mount when messages is empty
   useEffect(() => {
-    scrollToBottom(false);
+    if (messages.length > 0) {
+      scrollToBottom(false);
+    }
   }, [messages, scrollToBottom]);
+
+  // Ensure window is at (0, 0) when entering the AI page so the mobile header is immediately visible
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo(0, 0);
+    }
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Handle Send Message
@@ -654,11 +670,11 @@ export default function MobileAIAssistant({
   );
 
   return (
-    <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-[#070A12] dark:bg-[#070A12] light:bg-[#f8fafc] text-slate-100 dark:text-slate-100 light:text-slate-900">
+    <div className="relative flex h-full max-h-[100dvh] w-full flex-col overflow-hidden bg-[#070A12] dark:bg-[#070A12] light:bg-[#f8fafc] text-slate-100 dark:text-slate-100 light:text-slate-900">
       {/* ====================================================================
           1. COMPACT MOBILE HEADER (Clean, Minimal, ChatGPT-like)
           ==================================================================== */}
-      <header className="relative z-30 flex h-14 shrink-0 items-center justify-between border-b border-white/[0.08] dark:border-white/[0.08] light:border-slate-200 bg-[#070A12]/95 dark:bg-[#070A12]/95 light:bg-white/95 px-3 backdrop-blur-md">
+      <header className="sticky top-0 z-30 flex h-14 shrink-0 w-full items-center justify-between border-b border-white/[0.08] dark:border-white/[0.08] light:border-slate-200 bg-[#070A12]/95 dark:bg-[#070A12]/95 light:bg-white/95 px-3 backdrop-blur-md">
         {/* Left: Recent Chats Drawer Toggle */}
         <div className="flex items-center gap-2.5 min-w-0">
           <button
@@ -788,7 +804,7 @@ export default function MobileAIAssistant({
       {/* ====================================================================
           2. CHAT STREAM / START SCREEN (Clean, Minimal, No Avatars)
           ==================================================================== */}
-      <main className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-4 sm:px-4 space-y-4 pb-44 custom-scrollbar">
+      <main ref={messagesContainerRef} className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-4 sm:px-4 space-y-4 pb-44 custom-scrollbar">
         {messages.length === 0 ? (
           /* Minimal Start Screen */
           <div className="flex min-h-[50vh] flex-col items-center justify-center text-center px-2 py-6">

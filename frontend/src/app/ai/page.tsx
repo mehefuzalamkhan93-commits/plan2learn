@@ -139,6 +139,7 @@ export default function AIAssistantPage() {
   // Desktop (>= 1024px) starts with Sources open; phone (< 768px) keeps drawers closed by default.
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    window.scrollTo(0, 0);
     if (window.innerWidth < 768) {
       setSourcesOpen(false);
       setStudioOpen(false);
