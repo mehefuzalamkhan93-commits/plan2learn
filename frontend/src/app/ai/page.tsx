@@ -95,7 +95,25 @@ export default function AIAssistantPage() {
   // Chat profiling updates
   const [profileUpdates, setProfileUpdates] = useState<any>(null);
   const [missingInfo, setMissingInfo] = useState<any>(null);
-  const [responseStyle, setResponseStyle] = useState<'friendly' | 'strict'>('friendly');
+  const [responseStyle, setResponseStyleState] = useState<'friendly' | 'strict'>('friendly');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('p2l_ai_response_style');
+      if (saved === 'friendly' || saved === 'strict') {
+        setResponseStyleState(saved);
+      }
+    }
+  }, []);
+
+  const setResponseStyle = useCallback((style: 'friendly' | 'strict') => {
+    setResponseStyleState(style);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('p2l_ai_response_style', style);
+      } catch {}
+    }
+  }, []);
 
   // Proposal & roadmap
   const [proposal, setProposal] = useState<StudyPlanProposal | null>(null);

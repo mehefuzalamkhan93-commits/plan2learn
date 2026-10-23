@@ -226,6 +226,9 @@ export default function MobileAIAssistant({
       setConversationId(convId);
       setCurrentTitle(history.title || 'Chat');
       setMessages(history.messages || []);
+      if (history.response_style === 'friendly' || history.response_style === 'strict') {
+        setResponseStyle(history.response_style);
+      }
 
       // Restore unsent draft if any
       setInput(draftsRef.current[convId] || '');
@@ -246,7 +249,7 @@ export default function MobileAIAssistant({
   // ---------------------------------------------------------------------------
   // Start New Chat (+)
   // ---------------------------------------------------------------------------
-  const handleNewChat = () => {
+  const handleNewChat = useCallback(() => {
     // Save draft for current conversation if active
     if (conversationId) {
       draftsRef.current[conversationId] = input;
@@ -257,6 +260,9 @@ export default function MobileAIAssistant({
     setMessages([]);
     setConversationSources([]); // New chat starts with 0 sources!
     setInput(draftsRef.current['__new__'] || '');
+    setIsLoading(false);
+    setCopiedIndex(null);
+    setFeedbackState({});
     setShowRecentChatsDrawer(false);
     setShowSourcesDrawer(false);
     setShowMoreMenu(false);
@@ -264,7 +270,7 @@ export default function MobileAIAssistant({
     if (textareaRef.current) {
       textareaRef.current.focus();
     }
-  };
+  }, [conversationId, input]);
 
   // ---------------------------------------------------------------------------
   // Scroll to bottom (only scrolls the chat messages container, NEVER the window)
@@ -669,6 +675,49 @@ export default function MobileAIAssistant({
     [conversations]
   );
 
+  // ---------------------------------------------------------------------------
+  // Three-Dot Menu Handlers
+  // ---------------------------------------------------------------------------
+  const handleTogglePersona = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const nextStyle = responseStyle === 'friendly' ? 'strict' : 'friendly';
+    setResponseStyle(nextStyle);
+    if (conversationId) {
+      try {
+        await aiAPI.setResponseStyle(conversationId, nextStyle);
+      } catch (err) {
+        console.error('Failed to sync response style with server:', err);
+      }
+    }
+    toast({
+      title: `Persona: ${nextStyle === 'friendly' ? 'Friendly Mentor' : 'Strict Study Coach'}`,
+      description: `AI will now respond as a ${nextStyle === 'friendly' ? 'supportive mentor' : 'strict exam coach'}.`,
+    });
+    setShowMoreMenu(false);
+  };
+
+  const handleToggleTheme = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleTheme();
+    setShowMoreMenu(false);
+  };
+
+  const handleOpenPlanner = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowMoreMenu(false);
+    router.push('/planner');
+  };
+
+  const handleStartNewChat = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowMoreMenu(false);
+    handleNewChat();
+  };
+
   return (
     <div className="relative flex h-full max-h-[100dvh] w-full flex-col overflow-hidden bg-[#070A12] dark:bg-[#070A12] light:bg-[#f8fafc] text-slate-100 dark:text-slate-100 light:text-slate-900">
       {/* ====================================================================
@@ -696,7 +745,7 @@ export default function MobileAIAssistant({
             <p className="text-[10px] text-zinc-400 dark:text-zinc-400 light:text-slate-500 truncate max-w-[170px]">
               {conversationId
                 ? `${selectedSourcesCount} source${selectedSourcesCount === 1 ? '' : 's'} linked`
-                : 'ChatGPT-style Study Chat'}
+                : 'Adaptive AI Study Partner'}
             </p>
           </div>
         </div>
@@ -748,50 +797,45 @@ export default function MobileAIAssistant({
               className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs"
               onClick={() => setShowMoreMenu(false)}
             />
-            <div className="absolute right-3 top-14 z-50 w-56 rounded-2xl border border-white/[0.1] dark:border-white/[0.1] light:border-slate-200 bg-[#0e1424] dark:bg-[#0e1424] light:bg-white p-2 shadow-2xl space-y-1 animate-slide-up">
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="absolute right-3 top-14 z-50 w-56 rounded-2xl border border-white/[0.1] dark:border-white/[0.1] light:border-slate-200 bg-[#0e1424] dark:bg-[#0e1424] light:bg-white p-2 shadow-2xl space-y-1 animate-slide-up"
+            >
+              {/* 1. Persona Toggle */}
               <button
                 type="button"
-                onClick={() => {
-                  setResponseStyle(responseStyle === 'friendly' ? 'strict' : 'friendly');
-                  setShowMoreMenu(false);
-                }}
-                className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold text-zinc-200 dark:text-zinc-200 light:text-slate-800 hover:bg-white/[0.05] dark:hover:bg-white/[0.05] light:hover:bg-slate-50 cursor-pointer"
+                onClick={handleTogglePersona}
+                className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold text-zinc-200 dark:text-zinc-200 light:text-slate-800 hover:bg-white/[0.05] dark:hover:bg-white/[0.05] light:hover:bg-slate-100 cursor-pointer transition-colors"
               >
                 <span>Persona: {responseStyle === 'friendly' ? 'Friendly' : 'Strict'}</span>
-                <span className="text-[10px] text-indigo-400">Toggle</span>
+                <span className="text-[10px] font-bold text-indigo-400 dark:text-indigo-400 light:text-indigo-600">Toggle</span>
               </button>
 
+              {/* 2. Theme Toggle */}
               <button
                 type="button"
-                onClick={() => {
-                  toggleTheme();
-                  setShowMoreMenu(false);
-                }}
-                className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold text-zinc-200 dark:text-zinc-200 light:text-slate-800 hover:bg-white/[0.05] dark:hover:bg-white/[0.05] light:hover:bg-slate-50 cursor-pointer"
+                onClick={handleToggleTheme}
+                className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold text-zinc-200 dark:text-zinc-200 light:text-slate-800 hover:bg-white/[0.05] dark:hover:bg-white/[0.05] light:hover:bg-slate-100 cursor-pointer transition-colors"
               >
                 <span>Theme: {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</span>
-                {theme === 'dark' ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
+                {theme === 'dark' ? <Moon className="h-3.5 w-3.5 text-indigo-400" /> : <Sun className="h-3.5 w-3.5 text-amber-500" />}
               </button>
 
+              {/* 3. Open Study Planner */}
               <button
                 type="button"
-                onClick={() => {
-                  setShowMoreMenu(false);
-                  router.push('/planner');
-                }}
-                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-zinc-200 dark:text-zinc-200 light:text-slate-800 hover:bg-white/[0.05] dark:hover:bg-white/[0.05] light:hover:bg-slate-50 cursor-pointer"
+                onClick={handleOpenPlanner}
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-zinc-200 dark:text-zinc-200 light:text-slate-800 hover:bg-white/[0.05] dark:hover:bg-white/[0.05] light:hover:bg-slate-100 cursor-pointer transition-colors"
               >
-                <Calendar className="h-3.5 w-3.5 text-indigo-400" />
+                <Calendar className="h-3.5 w-3.5 text-indigo-400 dark:text-indigo-400 light:text-indigo-600" />
                 <span>Open Study Planner</span>
               </button>
 
+              {/* 4. Start New Chat */}
               <button
                 type="button"
-                onClick={() => {
-                  setShowMoreMenu(false);
-                  handleNewChat();
-                }}
-                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-indigo-400 hover:bg-indigo-500/10 cursor-pointer"
+                onClick={handleStartNewChat}
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-indigo-400 dark:text-indigo-400 light:text-indigo-600 hover:bg-indigo-500/10 cursor-pointer transition-colors"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>Start New Chat</span>
@@ -804,7 +848,7 @@ export default function MobileAIAssistant({
       {/* ====================================================================
           2. CHAT STREAM / START SCREEN (Clean, Minimal, No Avatars)
           ==================================================================== */}
-      <main ref={messagesContainerRef} className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-4 sm:px-4 space-y-4 pb-44 custom-scrollbar">
+      <main ref={messagesContainerRef} className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-4 sm:px-4 space-y-4 pb-44 custom-scrollbar bg-[#070A12] dark:bg-[#070A12] light:bg-[#f8fafc]">
         {messages.length === 0 ? (
           /* Minimal Start Screen */
           <div className="flex min-h-[50vh] flex-col items-center justify-center text-center px-2 py-6">
