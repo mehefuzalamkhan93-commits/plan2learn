@@ -305,11 +305,12 @@ def verify_otp(
             detail="Account is inactive or not found.",
         )
 
+    req_device_info = extract_device_info(request)
     device_info = {
-        "device_id": challenge.device_id or "unknown",
-        "device_name": challenge.device_name or "Unknown Device",
-        "device_type": challenge.device_type or "desktop",
-        "ip_address": challenge.ip_address or (request.client.host if request.client else None),
+        "device_id": challenge.device_id or req_device_info.get("device_id") or "unknown",
+        "device_name": challenge.device_name or req_device_info.get("device_name") or "Unknown Device",
+        "device_type": challenge.device_type or req_device_info.get("device_type") or "desktop",
+        "ip_address": challenge.ip_address or req_device_info.get("ip_address") or (request.client.host if request.client else None),
     }
 
     session = register_or_rotate_session(db, user.id, **device_info)

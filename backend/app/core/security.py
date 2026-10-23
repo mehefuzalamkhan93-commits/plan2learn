@@ -157,18 +157,27 @@ def register_or_rotate_session(
         )
         db.add(session)
 
+    session.is_active = True
+    session.last_active_at = now
     db.flush()
 
-    # 2. Enforce FIFO limit: Keep max 2 active sessions for this user
-    active_sessions = (
+    # 2. Enforce FIFO limit: Keep max MAX_ACTIVE_DEVICES active sessions for this user.
+    # The session currently being registered/rotated MUST remain active.
+    other_active = (
         db.query(UserSession)
-        .filter(UserSession.user_id == user_id, UserSession.is_active.is_(True))
-        .order_by(UserSession.last_active_at.desc())
+        .filter(
+            UserSession.user_id == user_id,
+            UserSession.is_active.is_(True),
+            UserSession.id != session.id,
+        )
+        .order_by(UserSession.last_active_at.asc())
         .all()
     )
 
-    if len(active_sessions) > MAX_ACTIVE_DEVICES:
-        for old_session in active_sessions[MAX_ACTIVE_DEVICES:]:
+    max_others = max(0, MAX_ACTIVE_DEVICES - 1)
+    if len(other_active) > max_others:
+        excess_count = len(other_active) - max_others
+        for old_session in other_active[:excess_count]:
             old_session.is_active = False
 
     db.commit()
@@ -208,6 +217,11 @@ def get_current_user_from_token(token: str, db) -> User | None:
         now_utc = datetime.now(timezone.utc)
         cutoff = now_utc - timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
         last_active = session.last_active_at
+        if last_active and isinstance(last_active, str):
+            try:
+                last_active = datetime.fromisoformat(last_active)
+            except Exception:
+                last_active = None
         if last_active and last_active.tzinfo is None:
             last_active = last_active.replace(tzinfo=timezone.utc)
         if last_active and last_active < cutoff:
@@ -220,16 +234,11 @@ def get_current_user_from_token(token: str, db) -> User | None:
 
         # Touch last_active_at periodically (e.g. at most once every 5 minutes)
         # to prevent slow synchronous remote DB write locks on every GET request
-        now_utc = datetime.now(timezone.utc)
         should_update = False
-        if not session.last_active_at:
+        if not last_active:
             should_update = True
-        else:
-            last_active = session.last_active_at
-            if last_active.tzinfo is None:
-                last_active = last_active.replace(tzinfo=timezone.utc)
-            if (now_utc - last_active).total_seconds() > 300:
-                should_update = True
+        elif (now_utc - last_active).total_seconds() > 300:
+            should_update = True
 
         if should_update:
             session.last_active_at = now_utc

@@ -19,7 +19,7 @@ import { PlanItem, TodayTaskOut, ReviewItemOut } from '@/types';
 import { pageContainerVariants } from '@/lib/motion';
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, status } = useAuth();
   const {
     userProfile,
     todayTasks,
@@ -38,10 +38,12 @@ export default function DashboardPage() {
 
   const [ratingTopic, setRatingTopic] = useState<{ id: string; name: string } | null>(null);
 
-  // Fetch dashboard data on mount
+  // Fetch dashboard data only when authenticated session is confirmed
   useEffect(() => {
-    fetchDashboardSummary();
-  }, [fetchDashboardSummary]);
+    if (status === 'authenticated' && user) {
+      fetchDashboardSummary();
+    }
+  }, [status, user, fetchDashboardSummary]);
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const todaySchedule = todayTasks; // Already filtered for today

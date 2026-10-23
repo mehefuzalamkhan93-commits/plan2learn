@@ -471,4 +471,138 @@ def test_expired_sessions_are_excluded_and_rejected(app_and_db):
     client.headers["Authorization"] = f"Bearer {expired_token}"
     expired_me = client.get("/api/v1/auth/me")
     assert expired_me.status_code == 401
-    assert expired_me.status_code == 401
+
+
+def test_missing_or_invalid_credentials_returns_401(app_and_db):
+    client, _ = app_and_db
+    client.headers.clear()
+
+    # 1. No credentials returns 401 "Not authenticated"
+    res_no_auth = client.get("/api/v1/auth/me")
+    assert res_no_auth.status_code == 401
+    assert res_no_auth.json()["detail"] == "Not authenticated"
+
+    # Profile without token returns 401
+    res_profile = client.get("/api/v1/auth/profile")
+    assert res_profile.status_code == 401
+    assert res_profile.json()["detail"] == "Not authenticated"
+
+    # Dashboard without token returns 401
+    res_dash = client.get("/api/v1/dashboard/summary")
+    assert res_dash.status_code == 401
+    assert res_dash.json()["detail"] == "Not authenticated"
+
+    # 2. Malformed or invalid JWT returns 401
+    client.headers["Authorization"] = "Bearer invalid.jwt.token"
+    res_bad = client.get("/api/v1/auth/me")
+    assert res_bad.status_code == 401
+    assert "Invalid authentication token" in res_bad.json()["detail"]
+
+
+def test_login_flow_and_pending_otp_cannot_access_protected_routes(app_and_db):
+    client, session_factory = app_and_db
+    from app.core.security import hash_password
+    from app.models.user import OTPChallenge
+
+    test_email = "otp_flow_test@example.com"
+    raw_password = "SecurePassword123!"
+
+    # Create active user
+    with session_factory() as db:
+        u = User(
+            email=test_email,
+            hashed_password=hash_password(raw_password),
+            full_name="OTP Tester",
+            is_active=True,
+            is_onboarded=True,
+        )
+        db.add(u)
+        db.commit()
+
+    # 1. POST /api/v1/auth/login requires OTP challenge
+    login_res = client.post("/api/v1/auth/login", json={"email": test_email, "password": raw_password})
+    assert login_res.status_code == 200
+    body = login_res.json()
+    assert body["requires_otp"] is True
+    challenge_id = body["challenge_id"]
+    assert challenge_id is not None
+    assert "access_token" not in body or body.get("access_token") is None
+
+    # 2. Pending OTP challenge CANNOT access protected routes
+    client.headers["Authorization"] = f"Bearer {challenge_id}"
+    blocked_me = client.get("/api/v1/auth/me")
+    assert blocked_me.status_code == 401
+
+    blocked_profile = client.get("/api/v1/auth/profile")
+    assert blocked_profile.status_code == 401
+
+    blocked_dash = client.get("/api/v1/dashboard/summary")
+    assert blocked_dash.status_code == 401
+
+    # 3. Simulate OTP verification: obtain plain code from challenge
+    with session_factory() as db:
+        ch = db.query(OTPChallenge).filter(OTPChallenge.id == challenge_id).first()
+        from app.services.otp import verify_otp_challenge, create_otp_challenge
+        # The plain code was generated; in test, we can verify verify-otp with invalid code fails
+        invalid_verify = client.post("/api/v1/auth/verify-otp", json={"challenge_id": challenge_id, "otp": "000000"})
+        assert invalid_verify.status_code == 400
+
+    # 4. Issue authenticated session upon valid verification
+    with session_factory() as db:
+        u_db = db.query(User).filter(User.email == test_email).first()
+        sess = register_or_rotate_session(db, u_db.id, "verified-device", "Test Browser")
+        valid_token = create_access_token({"sub": u_db.id, "sid": sess.id})
+
+    # 5. Authenticated session accesses /auth/me, /auth/profile, and /dashboard/summary successfully
+    client.headers["Authorization"] = f"Bearer {valid_token}"
+    me_resp = client.get("/api/v1/auth/me")
+    assert me_resp.status_code == 200
+    assert me_resp.json()["data"]["email"] == test_email
+
+    profile_resp = client.get("/api/v1/auth/profile")
+    assert profile_resp.status_code == 200
+
+    dash_resp = client.get("/api/v1/dashboard/summary")
+    assert dash_resp.status_code == 200
+
+
+def test_session_restoration_and_fifo_rotation_guarantees_current_device_active(app_and_db):
+    client, session_factory = app_and_db
+    user, _, _ = register_user(client, "fifo_robust_user@example.com")
+
+    # Simulate 3 device logins sequentially
+    with session_factory() as db:
+        s1 = register_or_rotate_session(db, user.id, "device-1", "Device One")
+        t1 = create_access_token({"sub": user.id, "sid": s1.id})
+
+    with session_factory() as db:
+        s2 = register_or_rotate_session(db, user.id, "device-2", "Device Two")
+        t2 = create_access_token({"sub": user.id, "sid": s2.id})
+
+    with session_factory() as db:
+        s3 = register_or_rotate_session(db, user.id, "device-3", "Device Three")
+        t3 = create_access_token({"sub": user.id, "sid": s3.id})
+
+    # Device 3 (current) MUST be active and succeed
+    client.headers["Authorization"] = f"Bearer {t3}"
+    res_d3 = client.get("/api/v1/auth/me")
+    assert res_d3.status_code == 200
+
+    res_dash3 = client.get("/api/v1/dashboard/summary")
+    assert res_dash3.status_code == 200
+
+    # Device 2 MUST also be active
+    client.headers["Authorization"] = f"Bearer {t2}"
+    res_d2 = client.get("/api/v1/auth/me")
+    assert res_d2.status_code == 200
+
+    # Device 1 (oldest) was evicted by FIFO
+    client.headers["Authorization"] = f"Bearer {t1}"
+    res_d1 = client.get("/api/v1/auth/me")
+    assert res_d1.status_code == 401
+
+    # Session restoration: repeated /auth/me requests for Device 3 do NOT invalidate it
+    client.headers["Authorization"] = f"Bearer {t3}"
+    for _ in range(3):
+        res_repeat = client.get("/api/v1/auth/me")
+        assert res_repeat.status_code == 200

@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { useTheme } from '@/lib/theme';
 import { StudyTaskDetailOut, DashboardSummary } from '@/types';
 import { usePlannerStore } from '@/store/usePlannerStore';
+import { useAuth } from '@/hooks/useAuth';
 import MobileBottomNav from '@/components/navigation/MobileBottomNav';
 
 interface MobilePlannerProps {
@@ -110,13 +111,17 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
 
-  // On mount: fetch tasks and user profile from backend
+  const { user, status } = useAuth();
+
+  // On mount: fetch tasks and user profile from backend only when authenticated
   useEffect(() => {
-    fetchAllTasks();
-    if (!userProfile) {
-      fetchUserProfile().catch(() => {});
+    if (status === 'authenticated' && user) {
+      fetchAllTasks().catch(() => {});
+      if (!userProfile) {
+        fetchUserProfile().catch(() => {});
+      }
     }
-  }, [fetchAllTasks, fetchUserProfile, userProfile]);
+  }, [status, user, fetchAllTasks, fetchUserProfile, userProfile]);
 
   // Derived subjects from user profile or fallback defaults
   const availableSubjects = useMemo(() => {

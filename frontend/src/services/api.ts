@@ -106,7 +106,10 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       const url = error.config?.url || '';
-      if (!url.includes('/auth/login') && !url.includes('/auth/signup')) {
+      // Only clear stored token when the authoritative user verification (/auth/me)
+      // or session endpoint (/auth/devices) explicitly rejects the token.
+      // Do not clear the token on login/signup attempts, password resets, or background data queries.
+      if (url.includes('/auth/me') || url.includes('/auth/devices')) {
         setStoredToken(null);
       }
     }
@@ -121,18 +124,19 @@ export const authAPI = {
     const token =
       response.data?.data?.access_token ||
       response.data?.access_token ||
-      (response.data as any)?.token;
+      (response.data as any)?.token ||
+      null;
     if (token) {
       setStoredToken(token);
     }
-    const rawUser = response.data?.data?.user || response.data?.user || response.data?.data || response.data;
-    const user: AuthenticatedUser = {
-      id: rawUser?.id || '',
-      email: rawUser?.email || '',
-      full_name: rawUser?.full_name || '',
-      is_onboarded: Boolean(rawUser?.is_onboarded),
-      has_student_profile: Boolean(rawUser?.has_student_profile),
-    };
+    const rawUser = response.data?.data?.user || response.data?.user || null;
+    const user: AuthenticatedUser | null = (rawUser && rawUser.id) ? {
+      id: String(rawUser.id),
+      email: String(rawUser.email || ''),
+      full_name: String(rawUser.full_name || ''),
+      is_onboarded: Boolean(rawUser.is_onboarded),
+      has_student_profile: Boolean(rawUser.has_student_profile),
+    } : null;
     return {
       ...response.data,
       data: {
@@ -148,18 +152,19 @@ export const authAPI = {
     const token =
       response.data?.data?.access_token ||
       response.data?.access_token ||
-      (response.data as any)?.token;
+      (response.data as any)?.token ||
+      null;
     if (token) {
       setStoredToken(token);
     }
-    const rawUser = response.data?.data?.user || response.data?.user || response.data?.data || response.data;
-    const user: AuthenticatedUser = {
-      id: rawUser?.id || '',
-      email: rawUser?.email || '',
-      full_name: rawUser?.full_name || '',
-      is_onboarded: Boolean(rawUser?.is_onboarded),
-      has_student_profile: Boolean(rawUser?.has_student_profile),
-    };
+    const rawUser = response.data?.data?.user || response.data?.user || null;
+    const user: AuthenticatedUser | null = (rawUser && rawUser.id) ? {
+      id: String(rawUser.id),
+      email: String(rawUser.email || ''),
+      full_name: String(rawUser.full_name || ''),
+      is_onboarded: Boolean(rawUser.is_onboarded),
+      has_student_profile: Boolean(rawUser.has_student_profile),
+    } : null;
     return {
       ...response.data,
       data: {
@@ -175,18 +180,19 @@ export const authAPI = {
     const token =
       response.data?.data?.access_token ||
       response.data?.access_token ||
-      (response.data as any)?.token;
+      (response.data as any)?.token ||
+      null;
     if (token) {
       setStoredToken(token);
     }
-    const rawUser = response.data?.data?.user || response.data?.user || response.data?.data || response.data;
-    const user: AuthenticatedUser = {
-      id: rawUser?.id || '',
-      email: rawUser?.email || '',
-      full_name: rawUser?.full_name || '',
-      is_onboarded: Boolean(rawUser?.is_onboarded),
-      has_student_profile: Boolean(rawUser?.has_student_profile),
-    };
+    const rawUser = response.data?.data?.user || response.data?.user || response.data?.data || null;
+    const user: AuthenticatedUser | null = (rawUser && rawUser.id) ? {
+      id: String(rawUser.id),
+      email: String(rawUser.email || ''),
+      full_name: String(rawUser.full_name || ''),
+      is_onboarded: Boolean(rawUser.is_onboarded),
+      has_student_profile: Boolean(rawUser.has_student_profile),
+    } : null;
     return {
       ...response.data,
       data: {
@@ -207,18 +213,19 @@ export const authAPI = {
     const token =
       response.data?.data?.access_token ||
       response.data?.access_token ||
-      (response.data as any)?.token;
+      (response.data as any)?.token ||
+      null;
     if (token) {
       setStoredToken(token);
     }
-    const rawUser = response.data?.data?.user || response.data?.user || response.data?.data || response.data;
-    const user: AuthenticatedUser = {
-      id: rawUser?.id || '',
-      email: rawUser?.email || '',
-      full_name: rawUser?.full_name || '',
-      is_onboarded: Boolean(rawUser?.is_onboarded),
-      has_student_profile: Boolean(rawUser?.has_student_profile),
-    };
+    const rawUser = response.data?.data?.user || response.data?.user || response.data?.data || null;
+    const user: AuthenticatedUser | null = (rawUser && rawUser.id) ? {
+      id: String(rawUser.id),
+      email: String(rawUser.email || ''),
+      full_name: String(rawUser.full_name || ''),
+      is_onboarded: Boolean(rawUser.is_onboarded),
+      has_student_profile: Boolean(rawUser.has_student_profile),
+    } : null;
     return {
       ...response.data,
       data: {

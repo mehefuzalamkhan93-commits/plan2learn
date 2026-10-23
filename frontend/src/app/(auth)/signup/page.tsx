@@ -74,17 +74,31 @@ export default function SignupPage() {
         confirm_password: confirmPassword,
       });
 
-      if (response.requires_otp && response.challenge_id) {
+      const requiresOtp = Boolean(
+        response.requires_otp ||
+        (response.data as any)?.requires_otp ||
+        response.challenge_id ||
+        (response.data as any)?.challenge_id
+      );
+      const challengeId =
+        response.challenge_id ||
+        (response.data as any)?.challenge_id;
+
+      if (requiresOtp && challengeId) {
         setOtpChallenge({
-          challengeId: response.challenge_id,
-          maskedEmail: response.masked_email || email.trim(),
-          expiresInSeconds: response.expires_in_seconds,
-          resendCooldownSeconds: response.resend_cooldown_seconds,
+          challengeId,
+          maskedEmail: response.masked_email || (response.data as any)?.masked_email || email.trim(),
+          expiresInSeconds: response.expires_in_seconds || (response.data as any)?.expires_in_seconds,
+          resendCooldownSeconds: response.resend_cooldown_seconds || (response.data as any)?.resend_cooldown_seconds,
         });
         return;
       }
 
-      triggerSplash({ destination: '/onboarding' });
+      if (response.data?.user && response.data.user.id && response.data?.access_token) {
+        triggerSplash({ destination: '/onboarding' });
+      } else {
+        setError('Verification code required to complete registration. Please check your email.');
+      }
     } catch (requestError) {
       const message =
         typeof requestError === 'object' && requestError !== null && 'response' in requestError

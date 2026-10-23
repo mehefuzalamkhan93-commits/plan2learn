@@ -17,7 +17,7 @@ import {
   UpdateTaskRequest,
 } from '@/types';
 import { format } from 'date-fns';
-import { dashboardAPI, plannerAPI, authAPI } from '@/services/api';
+import { dashboardAPI, plannerAPI, authAPI, getStoredToken } from '@/services/api';
 
 interface PlannerStore {
   // User Profile
@@ -124,6 +124,9 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
   setIsRoadmapStale: (stale) => set({ isRoadmapStale: stale }),
 
   fetchUserProfile: async () => {
+    if (typeof window !== 'undefined' && !getStoredToken()) {
+      return null;
+    }
     try {
       const res = await authAPI.getProfile();
       if (res && res.data) {
@@ -163,6 +166,9 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
   setUpcomingTasks: (tasks) => set({ upcomingTasks: tasks }),
 
   fetchAllTasks: async () => {
+    if (typeof window !== 'undefined' && !getStoredToken()) {
+      return [];
+    }
     set({ isLoadingTasks: true, taskError: null });
     try {
       const data = await plannerAPI.getTasks();
@@ -424,8 +430,10 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
   isOnboarded: false,
   setIsOnboarded: (value) => set({ isOnboarded: value }),
 
-  // Fetch dashboard data from API
   fetchDashboardSummary: async (targetDate?: string) => {
+    if (typeof window !== 'undefined' && !getStoredToken()) {
+      return;
+    }
     try {
       // Keep profile synced with backend
       get().fetchUserProfile().catch((e) => console.error('Silent profile sync error:', e));

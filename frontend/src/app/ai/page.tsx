@@ -33,6 +33,7 @@ import SettingsButton from '@/components/settings/SettingsButton';
 import AppLogo from '@/components/ui/AppLogo';
 import { usePlannerStore } from '@/store/usePlannerStore';
 import { useTheme } from '@/lib/theme';
+import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import {
   NotebookOut,
@@ -81,6 +82,7 @@ export default function AIAssistantPage() {
   const { toast } = useToast();
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
+  const { user, status } = useAuth();
 
   // Navigation & tabs
   const [activeTab, setActiveTab] = useState<ActiveTab>('chat');
@@ -123,13 +125,15 @@ export default function AIAssistantPage() {
   } = usePlannerStore();
 
   useEffect(() => {
-    if (!isDashboardLoaded) {
-      fetchDashboardSummary();
+    if (status === 'authenticated' && user) {
+      if (!isDashboardLoaded) {
+        fetchDashboardSummary();
+      }
+      if (!userProfile) {
+        fetchUserProfile();
+      }
     }
-    if (!userProfile) {
-      fetchUserProfile();
-    }
-  }, [isDashboardLoaded, userProfile, fetchDashboardSummary, fetchUserProfile]);
+  }, [status, user, isDashboardLoaded, userProfile, fetchDashboardSummary, fetchUserProfile]);
 
   // Responsive initial drawer state:
   // Desktop (>= 1024px) starts with Sources open; phone (< 768px) keeps drawers closed by default.
