@@ -19,10 +19,11 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 @router.get("/summary", response_model=DashboardSummary)
 async def get_dashboard_summary(
+    target_date: date | None = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> DashboardSummary:
-    today = date.today()
+    today = target_date or date.today()
 
     # Get active study plan
     study_plan = db.query(StudyPlan).filter(StudyPlan.user_id == current_user.id).first()
@@ -40,8 +41,8 @@ async def get_dashboard_summary(
     )
     today_tasks = today_tasks_query.all()
 
-    # Get upcoming tasks (next 7 days, excluding today) with eager loading
-    upcoming_end = today + timedelta(days=7)
+    # Get upcoming tasks (next 14 days, excluding today) with eager loading
+    upcoming_end = today + timedelta(days=14)
     upcoming_tasks_query = (
         db.query(StudyTask)
         .options(joinedload(StudyTask.topic).joinedload(Topic.subject))
@@ -51,7 +52,7 @@ async def get_dashboard_summary(
             StudyTask.scheduled_date <= upcoming_end,
         )
         .order_by(StudyTask.scheduled_date, StudyTask.scheduled_time)
-        .limit(20)
+        .limit(40)
     )
     upcoming_tasks = upcoming_tasks_query.all()
 

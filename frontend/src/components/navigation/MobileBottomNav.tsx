@@ -22,6 +22,8 @@ import { useTheme } from '@/lib/theme';
 import { useAuth } from '@/hooks/useAuth';
 import SettingsModal from '@/components/settings/SettingsModal';
 import AppLogo from '@/components/ui/AppLogo';
+import LogoutConfirmModal from '@/components/auth/LogoutConfirmModal';
+import { useDeviceAwareLogout } from '@/hooks/useDeviceAwareLogout';
 
 interface MobileBottomNavProps {
   active: 'home' | 'planner' | 'ai' | 'focus' | 'more';
@@ -30,7 +32,15 @@ interface MobileBottomNavProps {
 export default function MobileBottomNav({ active }: MobileBottomNavProps) {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
-  const { logout } = useAuth();
+  const {
+    requestLogout,
+    isCheckingDevices,
+    showConfirmModal,
+    activeDevicesCount,
+    confirmLogout,
+    cancelLogout,
+    isLoggingOut,
+  } = useDeviceAwareLogout();
   const [showMoreDrawer, setShowMoreDrawer] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<'profile' | 'account'>('account');
@@ -285,18 +295,18 @@ export default function MobileBottomNav({ active }: MobileBottomNavProps) {
               {/* Logout */}
               <button
                 type="button"
-                onClick={async () => {
+                onClick={() => {
                   setShowMoreDrawer(false);
-                  await logout();
-                  router.push('/login');
+                  requestLogout();
                 }}
-                className="flex w-full items-center justify-between rounded-xl p-3 text-xs font-semibold text-rose-400 dark:text-rose-400 light:text-rose-600 hover:bg-rose-500/10 cursor-pointer"
+                disabled={isLoggingOut || isCheckingDevices}
+                className="flex w-full items-center justify-between rounded-xl p-3 text-xs font-semibold text-rose-400 dark:text-rose-400 light:text-rose-600 hover:bg-rose-500/10 cursor-pointer disabled:opacity-50"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-500/15 text-rose-400">
                     <LogOut className="h-4 w-4" />
                   </div>
-                  <span>Logout</span>
+                  <span>{isCheckingDevices ? 'Checking sessions…' : 'Logout'}</span>
                 </div>
               </button>
             </div>
@@ -311,6 +321,13 @@ export default function MobileBottomNav({ active }: MobileBottomNavProps) {
           initialTab={settingsInitialTab}
         />
       )}
+
+      <LogoutConfirmModal
+        isOpen={showConfirmModal}
+        onClose={cancelLogout}
+        onConfirm={confirmLogout}
+        activeDevicesCount={activeDevicesCount}
+      />
     </>
   );
 }

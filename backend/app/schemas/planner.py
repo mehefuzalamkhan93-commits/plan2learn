@@ -100,6 +100,16 @@ class CreateTaskRequest(BaseModel):
     priority_tag: str = Field(default="Regular")
 
 
+class UpdateTaskRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    subject: str | None = Field(default=None, min_length=1, max_length=100)
+    scheduled_date: date | None = None
+    scheduled_time: str | None = Field(default=None, pattern=r"^\d{2}:\d{2}$")
+    duration_minutes: int | None = Field(default=None, gt=0, le=480)
+    completed: bool | None = None
+    priority_tag: str | None = None
+
+
 class StudyTaskDetailOut(BaseModel):
     id: str
     plan_version_id: str

@@ -12,6 +12,9 @@ import {
   ExamOut,
   StreakOut,
   ReadinessOut,
+  StudyTaskDetailOut,
+  CreateTaskRequest,
+  UpdateTaskRequest,
 } from '@/types';
 import { format } from 'date-fns';
 import { dashboardAPI, plannerAPI, authAPI } from '@/services/api';
@@ -29,10 +32,17 @@ interface PlannerStore {
   // Schedule & Tasks (from API)
   todayTasks: TodayTaskOut[];
   upcomingTasks: UpcomingTaskOut[];
+  allTasks: StudyTaskDetailOut[];
+  isLoadingTasks: boolean;
+  taskError: string | null;
   setTodayTasks: (tasks: TodayTaskOut[]) => void;
   setUpcomingTasks: (tasks: UpcomingTaskOut[]) => void;
+  fetchAllTasks: () => Promise<StudyTaskDetailOut[]>;
+  createTask: (data: CreateTaskRequest) => Promise<StudyTaskDetailOut>;
+  updateTask: (taskId: string, data: UpdateTaskRequest) => Promise<StudyTaskDetailOut>;
+  deleteTask: (taskId: string) => Promise<void>;
   markTaskComplete: (taskId: string) => void;
-  toggleTaskComplete: (taskId: string) => void;
+  toggleTaskComplete: (taskId: string) => Promise<void>;
   activeTask: PlanItem | null;
   setActiveTask: (task: PlanItem | null) => void;
 
@@ -90,7 +100,7 @@ interface PlannerStore {
   setIsOnboarded: (value: boolean) => void;
 
   // Fetch dashboard data
-  fetchDashboardSummary: () => Promise<void>;
+  fetchDashboardSummary: (targetDate?: string) => Promise<void>;
 }
 
 const STUDY_DURATION = 25 * 60; // 25 minutes
@@ -146,26 +156,130 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
   // Schedule & Tasks (from API)
   todayTasks: [],
   upcomingTasks: [],
+  allTasks: [],
+  isLoadingTasks: false,
+  taskError: null,
   setTodayTasks: (tasks) => set({ todayTasks: tasks }),
   setUpcomingTasks: (tasks) => set({ upcomingTasks: tasks }),
+
+  fetchAllTasks: async () => {
+    set({ isLoadingTasks: true, taskError: null });
+    try {
+      const data = await plannerAPI.getTasks();
+      const list = Array.isArray(data) ? data : [];
+      set({ allTasks: list, isLoadingTasks: false });
+      return list;
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || 'Failed to load study plan tasks.';
+      set({ taskError: msg, isLoadingTasks: false });
+      return [];
+    }
+  },
+
+  createTask: async (data: CreateTaskRequest) => {
+    set({ isLoadingTasks: true, taskError: null });
+    try {
+      const created = await plannerAPI.createTask(data);
+      set((state) => ({
+        allTasks: [...state.allTasks, created].sort((a, b) =>
+          `${a.scheduled_date} ${a.scheduled_time}`.localeCompare(`${b.scheduled_date} ${b.scheduled_time}`)
+        ),
+        isLoadingTasks: false,
+      }));
+      // Immediately refresh dashboard summary to keep views in sync
+      get().fetchDashboardSummary().catch(() => {});
+      return created;
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || 'Failed to create task.';
+      set({ taskError: msg, isLoadingTasks: false });
+      throw err;
+    }
+  },
+
+  updateTask: async (taskId: string, data: UpdateTaskRequest) => {
+    set({ isLoadingTasks: true, taskError: null });
+    try {
+      const updated = await plannerAPI.updateTask(taskId, data);
+      set((state) => ({
+        allTasks: state.allTasks.map((t) => (t.id === taskId ? updated : t)),
+        todayTasks: state.todayTasks.map((t) =>
+          t.id === taskId
+            ? {
+                ...t,
+                completed: updated.completed,
+                scheduled_date: updated.scheduled_date,
+                scheduled_time: updated.scheduled_time,
+                duration_minutes: updated.duration_minutes,
+                priority_tag: updated.priority_tag,
+                topic: t.topic
+                  ? { ...t.topic, name: updated.topic_name, subject: updated.subject }
+                  : null,
+              }
+            : t
+        ),
+        isLoadingTasks: false,
+      }));
+      get().fetchDashboardSummary().catch(() => {});
+      return updated;
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || 'Failed to update task.';
+      set({ taskError: msg, isLoadingTasks: false });
+      throw err;
+    }
+  },
+
+  deleteTask: async (taskId: string) => {
+    try {
+      await plannerAPI.deleteTask(taskId);
+      set((state) => ({
+        allTasks: state.allTasks.filter((t) => t.id !== taskId),
+        todayTasks: state.todayTasks.filter((t) => t.id !== taskId),
+        upcomingTasks: state.upcomingTasks.filter((t) => t.id !== taskId),
+      }));
+      get().fetchDashboardSummary().catch(() => {});
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || 'Failed to delete task.';
+      set({ taskError: msg });
+      throw err;
+    }
+  },
 
   markTaskComplete: (taskId) =>
     set((state) => ({
       todayTasks: state.todayTasks.map((task) =>
         task.id === taskId ? { ...task, completed: true } : task
       ),
+      allTasks: state.allTasks.map((task) =>
+        task.id === taskId ? { ...task, completed: true } : task
+      ),
     })),
 
-  toggleTaskComplete: (taskId) => {
-    // Persist to database in background
-    plannerAPI.toggleTask(taskId).catch((err) => {
-      console.error('Failed to toggle task completion on backend:', err);
-    });
+  toggleTaskComplete: async (taskId: string) => {
+    // Optimistic update
     set((state) => ({
       todayTasks: state.todayTasks.map((task) =>
         task.id === taskId ? { ...task, completed: !task.completed } : task
       ),
+      allTasks: state.allTasks.map((task) =>
+        task.id === taskId ? { ...task, completed: !task.completed } : task
+      ),
     }));
+    try {
+      await plannerAPI.toggleTask(taskId);
+      get().fetchDashboardSummary().catch(() => {});
+    } catch (err) {
+      console.error('Failed to toggle task completion on backend:', err);
+      // Revert on error
+      set((state) => ({
+        todayTasks: state.todayTasks.map((task) =>
+          task.id === taskId ? { ...task, completed: !task.completed } : task
+        ),
+        allTasks: state.allTasks.map((task) =>
+          task.id === taskId ? { ...task, completed: !task.completed } : task
+        ),
+      }));
+      throw err;
+    }
   },
 
   activeTask: null,
@@ -311,12 +425,13 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
   setIsOnboarded: (value) => set({ isOnboarded: value }),
 
   // Fetch dashboard data from API
-  fetchDashboardSummary: async () => {
+  fetchDashboardSummary: async (targetDate?: string) => {
     try {
       // Keep profile synced with backend
       get().fetchUserProfile().catch((e) => console.error('Silent profile sync error:', e));
 
-      const response = await dashboardAPI.getSummary();
+      const effectiveDate = targetDate || format(new Date(), 'yyyy-MM-dd');
+      const response = await dashboardAPI.getSummary(effectiveDate);
       if (response) {
         set({
           todayTasks: response.today_tasks || [],

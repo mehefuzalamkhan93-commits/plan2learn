@@ -8,6 +8,11 @@ import { useAuth } from '@/hooks/useAuth';
 
 const SYNC_INTERVAL_MS = 15000; // 15 seconds heartbeat
 
+let isManualLogoutInProgress = false;
+export const setManualLogoutInProgress = (val: boolean) => {
+  isManualLogoutInProgress = val;
+};
+
 export function useDeviceSync() {
   const router = useRouter();
   const { user } = useAuth();
@@ -19,7 +24,7 @@ export function useDeviceSync() {
   const fetchDashboardSummary = usePlannerStore((state) => state.fetchDashboardSummary);
 
   const performSync = useCallback(async () => {
-    if (!user || !user.is_onboarded || isEvictedRef.current) return;
+    if (!user || !user.is_onboarded || isEvictedRef.current || isManualLogoutInProgress) return;
 
     try {
       setIsSyncing(true);
@@ -31,6 +36,7 @@ export function useDeviceSync() {
         fetchDashboardSummary().catch(() => {});
       }
     } catch (err: unknown) {
+      if (isManualLogoutInProgress) return;
       const errorObj =
         typeof err === 'object' && err !== null && 'response' in err
           ? (err as { response?: { status?: number; data?: { detail?: string } } })
@@ -39,10 +45,8 @@ export function useDeviceSync() {
       if (errorObj?.response?.status === 401 && !isEvictedRef.current) {
         isEvictedRef.current = true;
         setStoredToken(null);
-        alert(
-          'Your session has ended because this account was logged into on another device (maximum 2 active devices allowed).'
-        );
-        router.replace('/login');
+        // Seamlessly redirect to login without native alert/confirm popups
+        router.replace('/login?reason=session_ended');
       }
     } finally {
       setIsSyncing(false);

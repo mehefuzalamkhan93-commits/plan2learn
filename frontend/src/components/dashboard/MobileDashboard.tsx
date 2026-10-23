@@ -32,12 +32,15 @@ import { useTheme } from '@/lib/theme';
 import { useAuth } from '@/hooks/useAuth';
 import SettingsModal from '@/components/settings/SettingsModal';
 import AppLogo from '@/components/ui/AppLogo';
+import LogoutConfirmModal from '@/components/auth/LogoutConfirmModal';
+import { useDeviceAwareLogout } from '@/hooks/useDeviceAwareLogout';
 import { AuthenticatedUser, UserProfile, TodayTaskOut, StreakOut, PlanItem } from '@/types';
 
 interface MobileDashboardProps {
   user: AuthenticatedUser | null;
   userProfile: UserProfile | null;
   todayTasks: TodayTaskOut[];
+  upcomingTasks?: TodayTaskOut[];
   completedTodayMinutes: number;
   totalPlannedTodayMinutes: number;
   daysUntilExam: number;
@@ -96,6 +99,7 @@ export default function MobileDashboard({
   user,
   userProfile,
   todayTasks,
+  upcomingTasks = [],
   completedTodayMinutes,
   totalPlannedTodayMinutes,
   daysUntilExam,
@@ -105,8 +109,17 @@ export default function MobileDashboard({
 }: MobileDashboardProps) {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
-  const { logout } = useAuth();
+  const {
+    requestLogout,
+    isCheckingDevices,
+    showConfirmModal,
+    activeDevicesCount,
+    confirmLogout,
+    cancelLogout,
+    isLoggingOut,
+  } = useDeviceAwareLogout();
 
+  const [taskTab, setTaskTab] = useState<'today' | 'upcoming'>('today');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<'profile' | 'account'>('profile');
   const [showMoreDrawer, setShowMoreDrawer] = useState(false);
@@ -267,119 +280,230 @@ export default function MobileDashboard({
 
 
         {/* ====================================================================
-            C. TODAY'S STUDY SECTION
-            - Section title: “Today's Study”
+            C. STUDY TASKS SECTION (Today & Upcoming Tabs)
+            - Toggle between Today and Upcoming tasks
             - Completed/total task count on the right
             - Compact horizontal task rows: subject icon, title, duration, circular play button
             ==================================================================== */}
         <section className="mt-5" aria-labelledby="todays-study-heading">
           <div className="mb-2.5 flex items-center justify-between px-0.5">
-            <h2
-              id="todays-study-heading"
-              className="text-sm font-bold text-white dark:text-white light:text-slate-900"
-            >
-              Today's Study
-            </h2>
-            <span className="rounded-full bg-white/[0.05] dark:bg-white/[0.05] light:bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-zinc-400 dark:text-zinc-400 light:text-slate-600">
-              {completedTasksCount}/{totalTasksCount}
-            </span>
-          </div>
-
-          {todayTasks.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-white/[0.1] dark:border-white/[0.1] light:border-slate-200 bg-[#0e1424]/50 dark:bg-[#0e1424]/50 light:bg-white p-6 text-center shadow-xs">
-              <Calendar className="mx-auto mb-2 h-8 w-8 text-indigo-400/60" />
-              <p className="text-xs font-semibold text-white dark:text-white light:text-slate-900">
-                No tasks scheduled for today
-              </p>
-              <p className="mt-1 text-[11px] leading-relaxed text-zinc-400 dark:text-zinc-400 light:text-slate-500">
-                Generate or calibrate your 14-day study plan to get personalized daily tasks.
-              </p>
+            <div className="flex items-center gap-1 bg-white/[0.04] dark:bg-white/[0.04] light:bg-slate-100 p-0.5 rounded-xl border border-white/[0.06] light:border-slate-200">
               <button
                 type="button"
-                onClick={() => router.push('/planner')}
-                className="mt-3.5 inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-600/30 transition-colors hover:bg-indigo-500"
+                onClick={() => setTaskTab('today')}
+                className={cn(
+                  'px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer',
+                  taskTab === 'today'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-zinc-400 hover:text-white light:text-slate-600'
+                )}
               >
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>Open Study Planner</span>
+                Today ({todayTasks.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setTaskTab('upcoming')}
+                className={cn(
+                  'px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer',
+                  taskTab === 'upcoming'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-zinc-400 hover:text-white light:text-slate-600'
+                )}
+              >
+                Upcoming ({upcomingTasks.length})
               </button>
             </div>
-          ) : (
-            <div className="space-y-2">
-              {todayTasks.map((task) => {
-                const subjectName = task.topic?.subject || 'General';
-                const taskTitle = task.topic?.name || task.topic_id;
-                const themeInfo = getSubjectTheme(subjectName);
-                const SubjectIcon = themeInfo.icon;
-                const isCompleted = task.completed;
+            {taskTab === 'today' && (
+              <span className="rounded-full bg-white/[0.05] dark:bg-white/[0.05] light:bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-zinc-400 dark:text-zinc-400 light:text-slate-600">
+                {completedTasksCount}/{totalTasksCount}
+              </span>
+            )}
+          </div>
 
-                return (
-                  <div
-                    key={task.id}
-                    className={cn(
-                      'flex items-center justify-between gap-3 rounded-2xl border p-2.5 sm:p-3 shadow-xs transition-colors',
-                      isCompleted
-                        ? 'border-white/[0.04] bg-[#0a0f1d]/50 dark:bg-[#0a0f1d]/50 light:bg-slate-50 opacity-75'
-                        : 'border-white/[0.08] dark:border-white/[0.08] light:border-slate-200/90 bg-[#0e1424] dark:bg-[#0e1424] light:bg-white hover:border-white/20 dark:hover:border-white/20 light:hover:border-indigo-300'
-                    )}
+          {taskTab === 'today' ? (
+            todayTasks.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-white/[0.1] dark:border-white/[0.1] light:border-slate-200 bg-[#0e1424]/50 dark:bg-[#0e1424]/50 light:bg-white p-6 text-center shadow-xs">
+                <Calendar className="mx-auto mb-2 h-8 w-8 text-indigo-400/60" />
+                <p className="text-xs font-semibold text-white dark:text-white light:text-slate-900">
+                  No tasks scheduled for today
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-zinc-400 dark:text-zinc-400 light:text-slate-500">
+                  {upcomingTasks.length > 0
+                    ? `You have ${upcomingTasks.length} upcoming study plan ${upcomingTasks.length === 1 ? 'task' : 'tasks'} scheduled.`
+                    : 'Add or calibrate your study plan to get personalized daily tasks.'}
+                </p>
+                <div className="mt-3.5 flex items-center justify-center gap-2">
+                  {upcomingTasks.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setTaskTab('upcoming')}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3.5 py-2 text-xs font-semibold text-indigo-400 hover:bg-indigo-500/20 transition-colors"
+                    >
+                      <span>View Upcoming ({upcomingTasks.length})</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => router.push('/planner')}
+                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-600/30 transition-colors hover:bg-indigo-500"
                   >
-                    {/* Subject Icon */}
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>Open Study Planner</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {todayTasks.map((task) => {
+                  const subjectName = task.topic?.subject || 'General';
+                  const taskTitle = task.topic?.name || task.topic_id;
+                  const themeInfo = getSubjectTheme(subjectName);
+                  const SubjectIcon = themeInfo.icon;
+                  const isCompleted = task.completed;
+
+                  return (
                     <div
+                      key={task.id}
                       className={cn(
-                        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border',
-                        themeInfo.containerClass
+                        'flex items-center justify-between gap-3 rounded-2xl border p-2.5 sm:p-3 shadow-xs transition-colors',
+                        isCompleted
+                          ? 'border-white/[0.04] bg-[#0a0f1d]/50 dark:bg-[#0a0f1d]/50 light:bg-slate-50 opacity-75'
+                          : 'border-white/[0.08] dark:border-white/[0.08] light:border-slate-200/90 bg-[#0e1424] dark:bg-[#0e1424] light:bg-white hover:border-white/20 dark:hover:border-white/20 light:hover:border-indigo-300'
                       )}
                     >
-                      <SubjectIcon className="h-5 w-5" />
-                    </div>
-
-                    {/* Task Title and Subtitle */}
-                    <div className="min-w-0 flex-1">
-                      <h3
+                      <div
                         className={cn(
-                          'truncate text-xs sm:text-[13px] font-semibold',
-                          isCompleted
-                            ? 'text-zinc-500 line-through dark:text-zinc-500 light:text-slate-400'
-                            : 'text-white dark:text-white light:text-slate-900'
+                          'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border',
+                          themeInfo.containerClass
                         )}
-                        title={taskTitle}
                       >
-                        {taskTitle}
-                      </h3>
-                      <p className="mt-0.5 truncate text-[11px] font-medium text-zinc-400 dark:text-zinc-400 light:text-slate-500">
-                        {subjectName} • {task.duration_minutes} min
-                      </p>
-                    </div>
+                        <SubjectIcon className="h-5 w-5" />
+                      </div>
 
-                    {/* Circular Action Button */}
-                    {isCompleted ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const planItem: PlanItem = {
-                            id: task.id,
-                            topic_id: task.topic_id,
-                            topic: {
-                              id: task.topic?.id || task.topic_id,
-                              subject: task.topic?.subject || 'Unknown',
-                              name: task.topic?.name || task.topic_id,
-                              priority: 'HIGH',
-                              difficulty: task.topic?.difficulty || 3,
-                              confidence_score: 3,
-                            },
-                            scheduled_date: task.scheduled_date,
-                            scheduled_time: task.scheduled_time,
-                            duration_minutes: task.duration_minutes,
-                            completed: true,
-                            priority_tag: task.priority_tag as any,
-                          };
-                          onRateTask(planItem);
-                        }}
-                        aria-label={`Completed task: ${taskTitle}`}
-                        className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/15 text-emerald-400 dark:text-emerald-400 light:text-emerald-700 light:bg-emerald-100 transition-colors hover:bg-emerald-500/25"
+                      <div className="min-w-0 flex-1">
+                        <h3
+                          className={cn(
+                            'truncate text-xs sm:text-[13px] font-semibold',
+                            isCompleted
+                              ? 'text-zinc-500 line-through dark:text-zinc-500 light:text-slate-400'
+                              : 'text-white dark:text-white light:text-slate-900'
+                          )}
+                          title={taskTitle}
+                        >
+                          {taskTitle}
+                        </h3>
+                        <p className="mt-0.5 truncate text-[11px] font-medium text-zinc-400 dark:text-zinc-400 light:text-slate-500">
+                          {subjectName} • {task.duration_minutes} min
+                        </p>
+                      </div>
+
+                      {isCompleted ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const planItem: PlanItem = {
+                              id: task.id,
+                              topic_id: task.topic_id,
+                              topic: {
+                                id: task.topic?.id || task.topic_id,
+                                subject: task.topic?.subject || 'Unknown',
+                                name: task.topic?.name || task.topic_id,
+                                priority: 'HIGH',
+                                difficulty: task.topic?.difficulty || 3,
+                                confidence_score: 3,
+                              },
+                              scheduled_date: task.scheduled_date,
+                              scheduled_time: task.scheduled_time,
+                              duration_minutes: task.duration_minutes,
+                              completed: true,
+                              priority_tag: task.priority_tag as any,
+                            };
+                            onRateTask(planItem);
+                          }}
+                          aria-label={`Completed task: ${taskTitle}`}
+                          className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/15 text-emerald-400 dark:text-emerald-400 light:text-emerald-700 light:bg-emerald-100 transition-colors hover:bg-emerald-500/25"
+                        >
+                          <Check className="h-4 w-4" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/focus?taskId=${task.id}`)}
+                          aria-label={`Start Focus Session for ${taskTitle}`}
+                          className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-indigo-600 text-white shadow-md shadow-indigo-600/30 transition-transform hover:bg-indigo-500 active:scale-90"
+                        >
+                          <Play className="h-3.5 w-3.5 fill-current ml-0.5" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )
+          ) : (
+            upcomingTasks.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-white/[0.1] dark:border-white/[0.1] light:border-slate-200 bg-[#0e1424]/50 dark:bg-[#0e1424]/50 light:bg-white p-6 text-center shadow-xs">
+                <Calendar className="mx-auto mb-2 h-8 w-8 text-indigo-400/60" />
+                <p className="text-xs font-semibold text-white dark:text-white light:text-slate-900">
+                  No upcoming tasks scheduled
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-zinc-400 dark:text-zinc-400 light:text-slate-500">
+                  Use the Study Planner to schedule topics for the upcoming days.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => router.push('/planner')}
+                  className="mt-3.5 inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-600/30 transition-colors hover:bg-indigo-500"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>Open Study Planner</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {upcomingTasks.map((task) => {
+                  const subjectName = task.topic?.subject || 'General';
+                  const taskTitle = task.topic?.name || task.topic_id;
+                  const themeInfo = getSubjectTheme(subjectName);
+                  const SubjectIcon = themeInfo.icon;
+                  const isCompleted = task.completed;
+
+                  return (
+                    <div
+                      key={task.id}
+                      className={cn(
+                        'flex items-center justify-between gap-3 rounded-2xl border p-2.5 sm:p-3 shadow-xs transition-colors',
+                        isCompleted
+                          ? 'border-white/[0.04] bg-[#0a0f1d]/50 dark:bg-[#0a0f1d]/50 light:bg-slate-50 opacity-75'
+                          : 'border-white/[0.08] dark:border-white/[0.08] light:border-slate-200/90 bg-[#0e1424] dark:bg-[#0e1424] light:bg-white hover:border-white/20 dark:hover:border-white/20 light:hover:border-indigo-300'
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border',
+                          themeInfo.containerClass
+                        )}
                       >
-                        <Check className="h-4 w-4" />
-                      </button>
-                    ) : (
+                        <SubjectIcon className="h-5 w-5" />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <h3
+                          className={cn(
+                            'truncate text-xs sm:text-[13px] font-semibold',
+                            isCompleted
+                              ? 'text-zinc-500 line-through dark:text-zinc-500 light:text-slate-400'
+                              : 'text-white dark:text-white light:text-slate-900'
+                          )}
+                          title={taskTitle}
+                        >
+                          {taskTitle}
+                        </h3>
+                        <p className="mt-0.5 truncate text-[11px] font-medium text-zinc-400 dark:text-zinc-400 light:text-slate-500">
+                          <span className="text-indigo-400 font-semibold">{task.scheduled_date}</span> • {subjectName} • {task.duration_minutes} min
+                        </p>
+                      </div>
+
                       <button
                         type="button"
                         onClick={() => router.push(`/focus?taskId=${task.id}`)}
@@ -388,11 +512,11 @@ export default function MobileDashboard({
                       >
                         <Play className="h-3.5 w-3.5 fill-current ml-0.5" />
                       </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )
           )}
         </section>
 
@@ -591,18 +715,18 @@ export default function MobileDashboard({
               {/* Logout */}
               <button
                 type="button"
-                onClick={async () => {
+                onClick={() => {
                   setShowMoreDrawer(false);
-                  await logout();
-                  router.push('/login');
+                  requestLogout();
                 }}
-                className="flex w-full items-center justify-between rounded-xl p-3 text-xs font-semibold text-rose-400 dark:text-rose-400 light:text-rose-600 hover:bg-rose-500/10 cursor-pointer"
+                disabled={isLoggingOut || isCheckingDevices}
+                className="flex w-full items-center justify-between rounded-xl p-3 text-xs font-semibold text-rose-400 dark:text-rose-400 light:text-rose-600 hover:bg-rose-500/10 cursor-pointer disabled:opacity-50"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-500/15 text-rose-400">
                     <LogOut className="h-4 w-4" />
                   </div>
-                  <span>Logout</span>
+                  <span>{isCheckingDevices ? 'Checking sessions…' : 'Logout'}</span>
                 </div>
               </button>
             </div>
@@ -618,6 +742,14 @@ export default function MobileDashboard({
           initialTab={settingsInitialTab}
         />
       )}
+
+      {/* Device-Aware Logout Confirmation Modal */}
+      <LogoutConfirmModal
+        isOpen={showConfirmModal}
+        onClose={cancelLogout}
+        onConfirm={confirmLogout}
+        activeDevicesCount={activeDevicesCount}
+      />
     </div>
   );
 }

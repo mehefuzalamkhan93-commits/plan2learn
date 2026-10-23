@@ -39,6 +39,7 @@ import {
   PlanProposalGenerateRequest,
   StudyTaskDetailOut,
   CreateTaskRequest,
+  UpdateTaskRequest,
   DeviceSession,
   DevicesResponse,
   SyncStatus,
@@ -233,9 +234,10 @@ export const authAPI = {
     return response.data;
   },
 
-  logout: async () => {
+  logout: async (options?: { allDevices?: boolean }) => {
     try {
-      const response = await apiClient.post<ApiResponse<null>>('/auth/logout');
+      const params = options?.allDevices ? { all_devices: true } : {};
+      const response = await apiClient.post<ApiResponse<null>>('/auth/logout', null, { params });
       return response.data;
     } finally {
       setStoredToken(null);
@@ -338,6 +340,11 @@ export const plannerAPI = {
 
   createTask: async (data: CreateTaskRequest) => {
     const response = await apiClient.post<StudyTaskDetailOut>('/planner/tasks', data);
+    return response.data;
+  },
+
+  updateTask: async (taskId: string, data: UpdateTaskRequest) => {
+    const response = await apiClient.patch<StudyTaskDetailOut>(`/planner/tasks/${taskId}`, data);
     return response.data;
   },
 
@@ -655,8 +662,9 @@ export const aiAPI = {
 };
 
 export const dashboardAPI = {
-  getSummary: async () => {
-    const response = await apiClient.get<DashboardSummary>('/dashboard/summary');
+  getSummary: async (targetDate?: string) => {
+    const params = targetDate ? { target_date: targetDate } : {};
+    const response = await apiClient.get<DashboardSummary>('/dashboard/summary', { params });
     return response.data;
   },
 };

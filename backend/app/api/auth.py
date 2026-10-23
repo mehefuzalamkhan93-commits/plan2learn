@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 import logging
 import secrets
@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.ai.config import AISettings, get_ai_settings
 from app.core.security import (
+    ACCESS_TOKEN_EXPIRE_DAYS,
     MAX_ACTIVE_DEVICES,
     create_access_token,
     decode_access_token,
@@ -19,6 +20,7 @@ from app.core.security import (
     register_or_rotate_session,
     verify_password,
 )
+from app.models.catalog import Subject
 from app.models.user import OTPChallenge, StudentProfile, User, UserSession
 from app.schemas.auth import (
     AuthData,
@@ -682,6 +684,7 @@ async def google_auth(
 def logout(
     request: Request,
     response: Response,
+    all_devices: bool = False,
     db: Session = Depends(get_db),
 ) -> AuthResponse:
     token = request.cookies.get("access_token")
@@ -691,11 +694,19 @@ def logout(
             token = auth_header[7:].strip()
     if token:
         payload = decode_access_token(token)
-        if payload and "sid" in payload:
-            session = db.query(UserSession).filter(UserSession.id == payload["sid"]).first()
-            if session:
-                session.is_active = False
+        if payload:
+            user_id = payload.get("sub")
+            sid = payload.get("sid")
+            if all_devices and user_id:
+                # Explicit action to log out of all devices
+                db.query(UserSession).filter(UserSession.user_id == user_id).update({"is_active": False})
                 db.commit()
+            elif sid:
+                # Default: revoke ONLY the current device's session
+                session = db.query(UserSession).filter(UserSession.id == sid).first()
+                if session:
+                    session.is_active = False
+                    db.commit()
 
     response.delete_cookie(
         key="access_token",
@@ -723,9 +734,32 @@ def get_user_devices(
         if payload:
             current_sid = payload.get("sid")
 
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
+
+    # Deactivate expired sessions (older than 7 days)
+    expired_sessions = (
+        db.query(UserSession)
+        .filter(
+            UserSession.user_id == current_user.id,
+            UserSession.is_active.is_(True),
+            UserSession.last_active_at < cutoff,
+        )
+        .all()
+    )
+    if expired_sessions:
+        for s in expired_sessions:
+            s.is_active = False
+        db.commit()
+
+    # Query only truly active, non-expired sessions
     sessions = (
         db.query(UserSession)
-        .filter(UserSession.user_id == current_user.id, UserSession.is_active.is_(True))
+        .filter(
+            UserSession.user_id == current_user.id,
+            UserSession.is_active.is_(True),
+            UserSession.last_active_at >= cutoff,
+        )
         .order_by(UserSession.last_active_at.desc())
         .limit(MAX_ACTIVE_DEVICES)
         .all()
@@ -832,7 +866,18 @@ def update_profile(
     if payload.grade_class is not None:
         profile.grade_class = payload.grade_class.strip()
     if payload.target_subjects is not None:
-        profile.target_subjects = [s.strip() for s in payload.target_subjects if s.strip()]
+        seen_subjects = set()
+        clean_subjects = []
+        for s in payload.target_subjects:
+            stripped = s.strip()
+            if stripped and stripped.lower() not in seen_subjects:
+                seen_subjects.add(stripped.lower())
+                clean_subjects.append(stripped)
+                subj_id = stripped.lower().replace(" ", "_")
+                existing_subj = db.query(Subject).filter(Subject.id == subj_id).first()
+                if not existing_subj:
+                    db.add(Subject(id=subj_id, name=stripped))
+        profile.target_subjects = clean_subjects
     if payload.weak_topics is not None:
         profile.weak_topics = [w.strip() for w in payload.weak_topics if w.strip()]
     if payload.strong_topics is not None:

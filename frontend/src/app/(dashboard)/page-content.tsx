@@ -135,6 +135,7 @@ export default function DashboardPage() {
           user={user}
           userProfile={userProfile}
           todayTasks={todaySchedule}
+          upcomingTasks={upcomingTasks}
           completedTodayMinutes={completedMinutesCalc}
           totalPlannedTodayMinutes={totalPlannedMinutesCalc}
           daysUntilExam={daysUntilExam}

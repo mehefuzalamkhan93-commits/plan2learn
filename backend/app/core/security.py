@@ -201,8 +201,21 @@ def get_current_user_from_token(token: str, db) -> User | None:
             )
             .first()
         )
-        # If session was terminated because a 3rd device logged in
+        # If session was terminated because revoked or a 3rd device logged in
         if not session or not session.is_active:
+            return None
+
+        now_utc = datetime.now(timezone.utc)
+        cutoff = now_utc - timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
+        last_active = session.last_active_at
+        if last_active and last_active.tzinfo is None:
+            last_active = last_active.replace(tzinfo=timezone.utc)
+        if last_active and last_active < cutoff:
+            session.is_active = False
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
             return None
 
         # Touch last_active_at periodically (e.g. at most once every 5 minutes)

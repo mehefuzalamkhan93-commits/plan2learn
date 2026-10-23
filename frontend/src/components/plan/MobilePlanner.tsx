@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { format, parseISO, isToday, addDays } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import {
   Share2,
   Plus,
@@ -17,14 +17,15 @@ import {
   X,
   Loader2,
   Sparkles,
-  ChevronRight,
-  Flame,
-  CheckCircle2,
+  Edit2,
+  Trash2,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/lib/theme';
-import { plannerAPI, dashboardAPI } from '@/services/api';
-import { StudyTaskDetailOut, CreateTaskRequest, DashboardSummary } from '@/types';
+import { StudyTaskDetailOut, DashboardSummary } from '@/types';
+import { usePlannerStore } from '@/store/usePlannerStore';
 import MobileBottomNav from '@/components/navigation/MobileBottomNav';
 
 interface MobilePlannerProps {
@@ -71,128 +72,172 @@ function getSubjectTheme(subjectName?: string) {
   };
 }
 
+const DEFAULT_SUBJECTS = ['Physics', 'Chemistry', 'Mathematics', 'Computer Science', 'General'];
+
 export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
   const router = useRouter();
   const { theme } = useTheme();
 
+  const {
+    allTasks,
+    isLoadingTasks,
+    taskError,
+    fetchAllTasks,
+    createTask,
+    updateTask,
+    deleteTask,
+    toggleTaskComplete,
+    userProfile,
+    fetchUserProfile,
+  } = usePlannerStore();
+
   const [activeTab, setActiveTab] = useState<'today' | 'week' | 'subjects'>('today');
-  const [tasks, setTasks] = useState<StudyTaskDetailOut[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Add Task Modal state
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newSubject, setNewSubject] = useState('Physics');
-  const [newDate, setNewDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [newTime, setNewTime] = useState('09:00');
-  const [newDuration, setNewDuration] = useState(60);
-  const [newPriority, setNewPriority] = useState('Regular');
+  // Add / Edit Modal state
+  const [showModal, setShowModal] = useState(false);
+  const [editingTask, setEditingTask] = useState<StudyTaskDetailOut | null>(null);
+
+  const [taskTitle, setTaskTitle] = useState('');
+  const [selectedSubject, setSelectedSubject] = useState('');
+  const [customSubject, setCustomSubject] = useState('');
+  const [scheduledDate, setScheduledDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [scheduledTime, setScheduledTime] = useState('09:00');
+  const [durationMinutes, setDurationMinutes] = useState(60);
+  const [priorityTag, setPriorityTag] = useState('Regular');
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
 
-  // Fetch all tasks from backend
-  const loadTasks = async () => {
-    setIsLoading(true);
-    try {
-      const data = await plannerAPI.getTasks();
-      if (Array.isArray(data) && data.length > 0) {
-        setTasks(data);
-      } else if (initialSummary) {
-        // Fallback to initialSummary tasks
-        const combined: StudyTaskDetailOut[] = [
-          ...initialSummary.today_tasks.map((t) => ({
-            id: t.id,
-            plan_version_id: t.plan_version_id,
-            user_id: t.user_id,
-            topic_id: t.topic_id,
-            topic_name: t.topic?.name || 'Study Task',
-            subject: t.topic?.subject || 'General',
-            scheduled_date: t.scheduled_date,
-            scheduled_time: t.scheduled_time || '09:00',
-            duration_minutes: t.duration_minutes || 60,
-            completed: t.completed,
-            priority_tag: t.priority_tag || 'Regular',
-            created_at: t.created_at,
-          })),
-          ...initialSummary.upcoming_tasks.map((t) => ({
-            id: t.id,
-            plan_version_id: t.plan_version_id,
-            user_id: t.user_id,
-            topic_id: t.topic_id,
-            topic_name: t.topic?.name || 'Study Task',
-            subject: t.topic?.subject || 'General',
-            scheduled_date: t.scheduled_date,
-            scheduled_time: t.scheduled_time || '10:00',
-            duration_minutes: t.duration_minutes || 60,
-            completed: t.completed,
-            priority_tag: t.priority_tag || 'Regular',
-            created_at: t.created_at,
-          })),
-        ];
-        setTasks(combined);
-      }
-    } catch (err) {
-      console.error('Failed to load planner tasks:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // On mount: fetch tasks and user profile from backend
   useEffect(() => {
-    loadTasks();
-  }, []);
+    fetchAllTasks();
+    if (!userProfile) {
+      fetchUserProfile().catch(() => {});
+    }
+  }, [fetchAllTasks, fetchUserProfile, userProfile]);
 
-  // Show temporary toast
+  // Derived subjects from user profile or fallback defaults
+  const availableSubjects = useMemo(() => {
+    if (userProfile?.target_subjects && userProfile.target_subjects.length > 0) {
+      const set = new Set([...userProfile.target_subjects, 'General']);
+      return Array.from(set);
+    }
+    return DEFAULT_SUBJECTS;
+  }, [userProfile]);
+
+  // Toast feedback
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Toggle task completion
-  const handleToggleTask = async (taskId: string, e?: React.MouseEvent) => {
+  // Open modal in Create mode
+  const openCreateModal = () => {
+    setEditingTask(null);
+    setTaskTitle('');
+    setSelectedSubject(availableSubjects[0] || 'General');
+    setCustomSubject('');
+    setScheduledDate(format(new Date(), 'yyyy-MM-dd'));
+    setScheduledTime('09:00');
+    setDurationMinutes(60);
+    setPriorityTag('Regular');
+    setSubmitError(null);
+    setShowModal(true);
+  };
+
+  // Open modal in Edit mode
+  const openEditModal = (task: StudyTaskDetailOut, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    // Optimistic update
-    setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, completed: !t.completed } : t))
-    );
+    setEditingTask(task);
+    setTaskTitle(task.topic_name);
+
+    if (availableSubjects.includes(task.subject)) {
+      setSelectedSubject(task.subject);
+      setCustomSubject('');
+    } else {
+      setSelectedSubject('__custom__');
+      setCustomSubject(task.subject);
+    }
+
+    setScheduledDate(task.scheduled_date);
+    setScheduledTime(task.scheduled_time || '09:00');
+    setDurationMinutes(task.duration_minutes || 60);
+    setPriorityTag(task.priority_tag || 'Regular');
+    setSubmitError(null);
+    setShowModal(true);
+  };
+
+  // Toggle task completion
+  const handleToggle = async (taskId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     try {
-      await plannerAPI.toggleTask(taskId);
+      await toggleTaskComplete(taskId);
       showToast('Task status updated.');
-    } catch (err) {
-      console.error('Failed to toggle task:', err);
-      // Revert on error
-      setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, completed: !t.completed } : t))
-      );
+    } catch {
       showToast('Failed to update task.');
     }
   };
 
-  // Add Task submit
-  const handleCreateTask = async (e: React.FormEvent) => {
+  // Delete task
+  const handleDeleteTask = async (taskId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (deletingTaskId) return;
+    setDeletingTaskId(taskId);
+    try {
+      await deleteTask(taskId);
+      showToast('Task removed from your study plan.');
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || err?.message || 'Failed to delete task.';
+      showToast(msg);
+    } finally {
+      setDeletingTaskId(null);
+    }
+  };
+
+  // Form submit for create or update
+  const handleSubmitTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTitle.trim()) {
+    if (!taskTitle.trim()) {
       setSubmitError('Please enter a task title.');
       return;
     }
+
+    const finalSubject =
+      selectedSubject === '__custom__'
+        ? customSubject.trim() || 'General'
+        : selectedSubject || 'General';
+
     setSubmitError(null);
     setIsSubmitting(true);
+
     try {
-      const created = await plannerAPI.createTask({
-        title: newTitle.trim(),
-        subject: newSubject.trim(),
-        scheduled_date: newDate,
-        scheduled_time: newTime,
-        duration_minutes: Number(newDuration),
-        priority_tag: newPriority,
-      });
-      setTasks((prev) => [...prev, created].sort((a, b) => a.scheduled_time.localeCompare(b.scheduled_time)));
-      setShowAddModal(false);
-      setNewTitle('');
-      showToast('Task added to your study plan!');
+      if (editingTask) {
+        await updateTask(editingTask.id, {
+          title: taskTitle.trim(),
+          subject: finalSubject,
+          scheduled_date: scheduledDate,
+          scheduled_time: scheduledTime,
+          duration_minutes: Number(durationMinutes),
+          priority_tag: priorityTag,
+        });
+        showToast('Task updated successfully.');
+      } else {
+        await createTask({
+          title: taskTitle.trim(),
+          subject: finalSubject,
+          scheduled_date: scheduledDate,
+          scheduled_time: scheduledTime,
+          duration_minutes: Number(durationMinutes),
+          priority_tag: priorityTag,
+        });
+        showToast('Task saved to your study plan and dashboard!');
+      }
+      setShowModal(false);
+      setEditingTask(null);
     } catch (err: any) {
-      const msg = err?.response?.data?.detail || 'Failed to save task. Please try again.';
+      const msg = err?.response?.data?.detail || err?.message || 'Failed to save task. Please try again.';
       setSubmitError(msg);
     } finally {
       setIsSubmitting(false);
@@ -202,8 +247,9 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
   // Share action
   const handleShare = async () => {
     const todayStr = format(new Date(), 'yyyy-MM-dd');
-    const todayList = tasks.filter((t) => t.scheduled_date === todayStr);
-    const text = `My Plan2Learn Plan (${format(new Date(), 'MMM d, yyyy')}):\n` +
+    const todayList = allTasks.filter((t) => t.scheduled_date === todayStr);
+    const text =
+      `My Plan2Learn Plan (${format(new Date(), 'MMM d, yyyy')}):\n` +
       todayList.map((t) => `• [${t.scheduled_time}] ${t.topic_name} (${t.subject})`).join('\n');
 
     if (navigator.share) {
@@ -225,19 +271,21 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
     }
   };
 
-  // Filtering for Today
+  // Date and filter calculations based on allTasks
   const todayDateStr = format(new Date(), 'yyyy-MM-dd');
-  const todayTasks = tasks.filter((t) => t.scheduled_date === todayDateStr);
-  const sortedTodayTasks = [...todayTasks].sort((a, b) => a.scheduled_time.localeCompare(b.scheduled_time));
+  const todayTasks = allTasks.filter((t) => t.scheduled_date === todayDateStr);
+  const sortedTodayTasks = [...todayTasks].sort((a, b) =>
+    (a.scheduled_time || '00:00').localeCompare(b.scheduled_time || '00:00')
+  );
 
   // Filtering for This Week
-  const weekTasks = tasks.filter((t) => {
-    // Tasks within next 7 days
-    const diff = (new Date(t.scheduled_date).getTime() - new Date(todayDateStr).getTime()) / (1000 * 3600 * 24);
+  const weekTasks = allTasks.filter((t) => {
+    const diff =
+      (new Date(t.scheduled_date).getTime() - new Date(todayDateStr).getTime()) /
+      (1000 * 3600 * 24);
     return diff >= 0 && diff < 7;
   });
 
-  // Grouping for This Week by date
   const weekGroupedByDate = weekTasks.reduce((acc, task) => {
     const d = task.scheduled_date;
     if (!acc[d]) acc[d] = [];
@@ -248,7 +296,7 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
   const sortedWeekDates = Object.keys(weekGroupedByDate).sort();
 
   // Grouping for Subjects tab
-  const subjectsMap = tasks.reduce((acc, task) => {
+  const subjectsMap = allTasks.reduce((acc, task) => {
     const s = task.subject || 'General';
     if (!acc[s]) acc[s] = [];
     acc[s].push(task);
@@ -269,30 +317,44 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
       )}
 
       <div className="mx-auto w-full max-w-md px-4 pt-4 sm:px-6">
-        
         {/* ====================================================================
-            1. COMPACT HEADER (Matches Screen #7 in Showcase)
-            - Title: "My Plan"
-            - Top-right Share action button
+            1. COMPACT HEADER (Matches Screen #7)
             ==================================================================== */}
         <header className="flex items-center justify-between gap-3 pb-3">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white dark:text-white light:text-slate-900">
-              My Plan
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white dark:text-white light:text-slate-900">
+                My Plan
+              </h1>
+              <span className="rounded-full bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 text-[10px] font-semibold text-indigo-400">
+                {allTasks.length} {allTasks.length === 1 ? 'task' : 'tasks'}
+              </span>
+            </div>
             <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-400 light:text-slate-500">
               {format(new Date(), 'EEEE, MMMM d')}
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleShare}
-            aria-label="Share Study Plan"
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.08] dark:border-white/[0.08] light:border-slate-200/90 bg-[#0e1424] dark:bg-[#0e1424] light:bg-white text-zinc-300 dark:text-zinc-300 light:text-slate-600 shadow-xs transition-colors hover:border-indigo-500/40 hover:text-white active:scale-95 cursor-pointer"
-          >
-            <Share2 className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fetchAllTasks()}
+              disabled={isLoadingTasks}
+              aria-label="Refresh study plan"
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.08] dark:border-white/[0.08] light:border-slate-200/90 bg-[#0e1424] dark:bg-[#0e1424] light:bg-white text-zinc-300 dark:text-zinc-300 light:text-slate-600 shadow-xs transition-colors hover:border-indigo-500/40 hover:text-white active:scale-95 cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={cn('h-4 w-4', isLoadingTasks && 'animate-spin')} />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleShare}
+              aria-label="Share Study Plan"
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.08] dark:border-white/[0.08] light:border-slate-200/90 bg-[#0e1424] dark:bg-[#0e1424] light:bg-white text-zinc-300 dark:text-zinc-300 light:text-slate-600 shadow-xs transition-colors hover:border-indigo-500/40 hover:text-white active:scale-95 cursor-pointer"
+            >
+              <Share2 className="h-4 w-4" />
+            </button>
+          </div>
         </header>
 
         {/* ====================================================================
@@ -309,7 +371,7 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
                 : 'text-zinc-400 dark:text-zinc-400 light:text-slate-600 hover:text-white dark:hover:text-white light:hover:text-slate-900'
             )}
           >
-            Today
+            Today ({todayTasks.length})
           </button>
           <button
             type="button"
@@ -321,7 +383,7 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
                 : 'text-zinc-400 dark:text-zinc-400 light:text-slate-600 hover:text-white dark:hover:text-white light:hover:text-slate-900'
             )}
           >
-            This Week
+            This Week ({weekTasks.length})
           </button>
           <button
             type="button"
@@ -333,14 +395,31 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
                 : 'text-zinc-400 dark:text-zinc-400 light:text-slate-600 hover:text-white dark:hover:text-white light:hover:text-slate-900'
             )}
           >
-            Subjects
+            Subjects ({subjectNames.length})
           </button>
         </div>
+
+        {/* Global Error Banner */}
+        {taskError && (
+          <div className="mt-3 flex items-center justify-between rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-300">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />
+              <span>{taskError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => fetchAllTasks()}
+              className="font-semibold underline text-rose-300 hover:text-rose-100"
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* ====================================================================
             3. TAB CONTENT
             ==================================================================== */}
-        {isLoading ? (
+        {isLoadingTasks && allTasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <Loader2 className="h-7 w-7 animate-spin text-indigo-500" />
             <p className="text-xs font-medium text-zinc-400 dark:text-zinc-400 light:text-slate-500">
@@ -349,9 +428,7 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
           </div>
         ) : (
           <div className="mt-5">
-            {/* -------------------------------------------------------------
-                TAB 1: TODAY (Exact Vertical Schedule Timeline from Screen #7)
-                ------------------------------------------------------------- */}
+            {/* TAB 1: TODAY */}
             {activeTab === 'today' && (
               <div>
                 {sortedTodayTasks.length === 0 ? (
@@ -366,7 +443,6 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
                   </div>
                 ) : (
                   <div className="relative pl-0 w-full min-w-0">
-                    {/* Vertical Timeline List */}
                     <div className="space-y-4 w-full min-w-0">
                       {sortedTodayTasks.map((task, idx) => {
                         const isCompleted = task.completed;
@@ -379,9 +455,8 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
                               {task.scheduled_time}
                             </div>
 
-                            {/* Timeline Column: Node dot + line */}
+                            {/* Timeline Node + line */}
                             <div className="relative flex flex-col items-center self-stretch shrink-0">
-                              {/* Node Circle */}
                               <div
                                 className={cn(
                                   'mt-3.5 h-2.5 w-2.5 rounded-full ring-4 transition-transform group-hover:scale-125',
@@ -390,7 +465,6 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
                                     : 'bg-indigo-500 ring-[#070A12] dark:ring-[#070A12] light:ring-[#f8fafc]'
                                 )}
                               />
-                              {/* Connecting Line (if not last item) */}
                               {idx < sortedTodayTasks.length - 1 && (
                                 <div className="w-0.5 flex-1 bg-white/[0.08] dark:bg-white/[0.08] light:bg-slate-200 -mb-1 mt-1" />
                               )}
@@ -418,7 +492,7 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
                                 >
                                   {task.topic_name}
                                 </h3>
-                                <div className="mt-1 flex items-center gap-2 text-[11px] font-medium text-zinc-400 dark:text-zinc-400 light:text-slate-500">
+                                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-zinc-400 dark:text-zinc-400 light:text-slate-500">
                                   <span>{task.subject}</span>
                                   <span>•</span>
                                   <span>{task.duration_minutes}m</span>
@@ -435,20 +509,47 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
                                 </div>
                               </div>
 
-                              {/* Small Circular Completion Indicator */}
-                              <button
-                                type="button"
-                                onClick={(e) => handleToggleTask(task.id, e)}
-                                aria-label={isCompleted ? 'Mark task incomplete' : 'Mark task complete'}
-                                className={cn(
-                                  'flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-all active:scale-90',
-                                  isCompleted
-                                    ? 'border-emerald-500 bg-emerald-500 text-white shadow-xs shadow-emerald-500/30'
-                                    : 'border-zinc-500/50 dark:border-zinc-500/50 light:border-slate-300 hover:border-indigo-400 hover:bg-indigo-500/10'
-                                )}
-                              >
-                                {isCompleted && <Check className="h-3.5 w-3.5 stroke-[3]" />}
-                              </button>
+                              {/* Action Buttons: Edit, Delete, Toggle Complete */}
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => openEditModal(task, e)}
+                                  title="Edit Task"
+                                  aria-label="Edit Task"
+                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:text-white dark:hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer"
+                                >
+                                  <Edit2 className="h-3.5 w-3.5" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleDeleteTask(task.id, e)}
+                                  disabled={deletingTaskId === task.id}
+                                  title="Delete Task"
+                                  aria-label="Delete Task"
+                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer disabled:opacity-50"
+                                >
+                                  {deletingTaskId === task.id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin text-rose-400" />
+                                  ) : (
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleToggle(task.id, e)}
+                                  aria-label={isCompleted ? 'Mark task incomplete' : 'Mark task complete'}
+                                  className={cn(
+                                    'flex h-6 w-6 ml-0.5 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-all active:scale-90',
+                                    isCompleted
+                                      ? 'border-emerald-500 bg-emerald-500 text-white shadow-xs shadow-emerald-500/30'
+                                      : 'border-zinc-500/50 dark:border-zinc-500/50 light:border-slate-300 hover:border-indigo-400 hover:bg-indigo-500/10'
+                                  )}
+                                >
+                                  {isCompleted && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                                </button>
+                              </div>
                             </div>
                           </div>
                         );
@@ -459,9 +560,7 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
               </div>
             )}
 
-            {/* -------------------------------------------------------------
-                TAB 2: THIS WEEK
-                ------------------------------------------------------------- */}
+            {/* TAB 2: THIS WEEK */}
             {activeTab === 'week' && (
               <div className="space-y-4">
                 {sortedWeekDates.length === 0 ? (
@@ -482,7 +581,6 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
 
                     return (
                       <div key={dateStr} className="space-y-2">
-                        {/* Day Group Header */}
                         <div className="flex items-center justify-between px-1">
                           <span
                             className={cn(
@@ -500,7 +598,6 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
                           </span>
                         </div>
 
-                        {/* Day's Tasks */}
                         <div className="space-y-1.5">
                           {dayTasks.map((task) => (
                             <div
@@ -529,18 +626,37 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
                                 </p>
                               </div>
 
-                              <button
-                                type="button"
-                                onClick={(e) => handleToggleTask(task.id, e)}
-                                className={cn(
-                                  'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-all active:scale-90',
-                                  task.completed
-                                    ? 'border-emerald-500 bg-emerald-500 text-white'
-                                    : 'border-zinc-500/50 dark:border-zinc-500/50 light:border-slate-300'
-                                )}
-                              >
-                                {task.completed && <Check className="h-3 w-3 stroke-[3]" />}
-                              </button>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => openEditModal(task, e)}
+                                  title="Edit Task"
+                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:text-white transition-colors"
+                                >
+                                  <Edit2 className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleDeleteTask(task.id, e)}
+                                  disabled={deletingTaskId === task.id}
+                                  title="Delete Task"
+                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:text-rose-400 transition-colors"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleToggle(task.id, e)}
+                                  className={cn(
+                                    'flex h-5 w-5 ml-0.5 shrink-0 items-center justify-center rounded-full border transition-all active:scale-90',
+                                    task.completed
+                                      ? 'border-emerald-500 bg-emerald-500 text-white'
+                                      : 'border-zinc-500/50 dark:border-zinc-500/50 light:border-slate-300'
+                                  )}
+                                >
+                                  {task.completed && <Check className="h-3 w-3 stroke-[3]" />}
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -551,9 +667,7 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
               </div>
             )}
 
-            {/* -------------------------------------------------------------
-                TAB 3: SUBJECTS
-                ------------------------------------------------------------- */}
+            {/* TAB 3: SUBJECTS */}
             {activeTab === 'subjects' && (
               <div className="space-y-3">
                 {subjectNames.length === 0 ? (
@@ -605,7 +719,6 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
                           </span>
                         </div>
 
-                        {/* Subject's Task items */}
                         <div className="mt-2.5 space-y-1.5">
                           {subjTasks.slice(0, 5).map((t) => (
                             <div
@@ -622,9 +735,18 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
                               >
                                 {t.topic_name}
                               </span>
-                              <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500">
-                                {t.scheduled_date}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500">
+                                  {t.scheduled_date}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => openEditModal(t, e)}
+                                  className="text-zinc-400 hover:text-white"
+                                >
+                                  <Edit2 className="h-3 w-3" />
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -636,55 +758,48 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
             )}
 
             {/* ====================================================================
-                4. PROMINENT FULL-WIDTH "+ Add Task" BUTTON (Matches Screen #7)
+                4. PROMINENT FULL-WIDTH "+ Add Task" BUTTON
                 ==================================================================== */}
             <div className="mt-5">
               <button
                 type="button"
-                onClick={() => {
-                  setSubmitError(null);
-                  setShowAddModal(true);
-                }}
+                onClick={openCreateModal}
                 className="w-full py-3.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs sm:text-sm shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer"
               >
                 <Plus className="h-4 w-4 stroke-[2.5]" />
                 <span>+ Add Task</span>
               </button>
             </div>
-
           </div>
         )}
-
       </div>
 
       {/* ====================================================================
-          5. ADD TASK MODAL / BOTTOM SHEET
+          5. ADD / EDIT TASK MODAL
           ==================================================================== */}
-      {showAddModal && (
+      {showModal && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end sm:items-center sm:justify-center p-0 sm:p-4">
-          {/* Backdrop */}
           <div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-            onClick={() => !isSubmitting && setShowAddModal(false)}
+            onClick={() => !isSubmitting && setShowModal(false)}
             aria-hidden="true"
           />
 
-          {/* Modal Container */}
           <div className="relative z-10 w-full max-w-md rounded-t-3xl sm:rounded-3xl border-t sm:border border-white/[0.1] dark:border-white/[0.1] light:border-slate-200 bg-[#0e1424] dark:bg-[#0e1424] light:bg-white p-5 shadow-2xl animate-slide-up">
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-zinc-600 dark:bg-zinc-600 light:bg-slate-300 sm:hidden" />
 
             <div className="flex items-center justify-between pb-3 border-b border-white/[0.08] dark:border-white/[0.08] light:border-slate-200">
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/15 text-indigo-400">
-                  <Plus className="h-4 w-4" />
+                  {editingTask ? <Edit2 className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                 </div>
                 <h2 className="text-sm font-bold text-white dark:text-white light:text-slate-900">
-                  Add Study Task
+                  {editingTask ? 'Edit Study Task' : 'Add Study Task'}
                 </h2>
               </div>
               <button
                 type="button"
-                onClick={() => setShowAddModal(false)}
+                onClick={() => setShowModal(false)}
                 disabled={isSubmitting}
                 className="rounded-lg p-1 text-zinc-400 hover:text-white dark:hover:text-white light:text-slate-400 light:hover:text-slate-700"
               >
@@ -693,12 +808,13 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
             </div>
 
             {submitError && (
-              <div className="mt-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-2.5 text-xs text-rose-400">
-                {submitError}
+              <div className="mt-3 flex items-center gap-1.5 rounded-xl border border-rose-500/20 bg-rose-500/10 p-2.5 text-xs text-rose-400">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{submitError}</span>
               </div>
             )}
 
-            <form onSubmit={handleCreateTask} className="mt-4 space-y-3.5">
+            <form onSubmit={handleSubmitTask} className="mt-4 space-y-3.5">
               {/* Task Title */}
               <div>
                 <label className="block text-xs font-medium text-zinc-300 dark:text-zinc-300 light:text-slate-700 mb-1">
@@ -708,28 +824,29 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
                   type="text"
                   required
                   placeholder="e.g. Electromagnetic Induction Numerical Drill"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
+                  value={taskTitle}
+                  onChange={(e) => setTaskTitle(e.target.value)}
                   className="w-full rounded-xl border border-white/[0.1] dark:border-white/[0.1] light:border-slate-300 bg-white/[0.04] dark:bg-white/[0.04] light:bg-slate-50 px-3 py-2 text-xs text-white dark:text-white light:text-slate-900 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none"
                 />
               </div>
 
-              {/* Subject */}
+              {/* Subject & Custom input */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-zinc-300 dark:text-zinc-300 light:text-slate-700 mb-1">
                     Subject *
                   </label>
                   <select
-                    value={newSubject}
-                    onChange={(e) => setNewSubject(e.target.value)}
+                    value={selectedSubject}
+                    onChange={(e) => setSelectedSubject(e.target.value)}
                     className="w-full rounded-xl border border-white/[0.1] dark:border-white/[0.1] light:border-slate-300 bg-[#0e1424] dark:bg-[#0e1424] light:bg-slate-50 px-3 py-2 text-xs text-white dark:text-white light:text-slate-900 focus:border-indigo-500 focus:outline-none"
                   >
-                    <option value="Physics">Physics</option>
-                    <option value="Chemistry">Chemistry</option>
-                    <option value="Mathematics">Mathematics</option>
-                    <option value="Computer Science">Computer Science</option>
-                    <option value="General">General</option>
+                    {availableSubjects.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                    <option value="__custom__">+ Custom Subject...</option>
                   </select>
                 </div>
 
@@ -739,8 +856,8 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
                     Priority
                   </label>
                   <select
-                    value={newPriority}
-                    onChange={(e) => setNewPriority(e.target.value)}
+                    value={priorityTag}
+                    onChange={(e) => setPriorityTag(e.target.value)}
                     className="w-full rounded-xl border border-white/[0.1] dark:border-white/[0.1] light:border-slate-300 bg-[#0e1424] dark:bg-[#0e1424] light:bg-slate-50 px-3 py-2 text-xs text-white dark:text-white light:text-slate-900 focus:border-indigo-500 focus:outline-none"
                   >
                     <option value="Regular">Regular</option>
@@ -751,6 +868,22 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
                 </div>
               </div>
 
+              {selectedSubject === '__custom__' && (
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 dark:text-zinc-300 light:text-slate-700 mb-1">
+                    Custom Subject Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Bengali, Sociology, Robotics"
+                    value={customSubject}
+                    onChange={(e) => setCustomSubject(e.target.value)}
+                    className="w-full rounded-xl border border-white/[0.1] dark:border-white/[0.1] light:border-slate-300 bg-white/[0.04] dark:bg-white/[0.04] light:bg-slate-50 px-3 py-2 text-xs text-white dark:text-white light:text-slate-900 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+              )}
+
               {/* Date & Time */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -760,8 +893,8 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
                   <input
                     type="date"
                     required
-                    value={newDate}
-                    onChange={(e) => setNewDate(e.target.value)}
+                    value={scheduledDate}
+                    onChange={(e) => setScheduledDate(e.target.value)}
                     className="w-full rounded-xl border border-white/[0.1] dark:border-white/[0.1] light:border-slate-300 bg-[#0e1424] dark:bg-[#0e1424] light:bg-slate-50 px-3 py-2 text-xs text-white dark:text-white light:text-slate-900 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
@@ -773,8 +906,8 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
                   <input
                     type="time"
                     required
-                    value={newTime}
-                    onChange={(e) => setNewTime(e.target.value)}
+                    value={scheduledTime}
+                    onChange={(e) => setScheduledTime(e.target.value)}
                     className="w-full rounded-xl border border-white/[0.1] dark:border-white/[0.1] light:border-slate-300 bg-[#0e1424] dark:bg-[#0e1424] light:bg-slate-50 px-3 py-2 text-xs text-white dark:text-white light:text-slate-900 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
@@ -790,10 +923,10 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
                     <button
                       key={dur}
                       type="button"
-                      onClick={() => setNewDuration(dur)}
+                      onClick={() => setDurationMinutes(dur)}
                       className={cn(
                         'flex-1 py-1.5 rounded-lg border text-xs font-semibold transition-colors',
-                        newDuration === dur
+                        durationMinutes === dur
                           ? 'border-indigo-500 bg-indigo-500/20 text-indigo-400'
                           : 'border-white/[0.08] dark:border-white/[0.08] light:border-slate-300 text-zinc-400 dark:text-zinc-400 light:text-slate-600'
                       )}
@@ -808,7 +941,7 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
               <div className="pt-2 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => setShowModal(false)}
                   disabled={isSubmitting}
                   className="rounded-xl px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-white dark:hover:text-white light:text-slate-600 light:hover:text-slate-900 transition-colors"
                 >
@@ -826,8 +959,8 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
                     </>
                   ) : (
                     <>
-                      <Plus className="h-3.5 w-3.5" />
-                      <span>Save Task</span>
+                      {editingTask ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                      <span>{editingTask ? 'Update Task' : 'Save Task'}</span>
                     </>
                   )}
                 </button>
@@ -838,7 +971,7 @@ export default function MobilePlanner({ initialSummary }: MobilePlannerProps) {
       )}
 
       {/* ====================================================================
-          6. FIXED BOTTOM NAVIGATION (Planner Active)
+          6. FIXED BOTTOM NAVIGATION
           ==================================================================== */}
       <MobileBottomNav active="planner" />
     </div>

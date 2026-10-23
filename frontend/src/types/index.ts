@@ -462,6 +462,16 @@ export interface CreateTaskRequest {
   priority_tag?: string;
 }
 
+export interface UpdateTaskRequest {
+  title?: string;
+  subject?: string;
+  scheduled_date?: string;
+  scheduled_time?: string;
+  duration_minutes?: number;
+  completed?: boolean;
+  priority_tag?: string;
+}
+
 export interface StreakOut {
   user_id: string;
   current_streak: number;

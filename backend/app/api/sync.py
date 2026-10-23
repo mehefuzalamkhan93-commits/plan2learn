@@ -1,10 +1,11 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
 from app.core.database import get_db
+from app.core.security import ACCESS_TOKEN_EXPIRE_DAYS
 from app.models.progress import Streak, ReadinessScore
 from app.models.user import User, UserSession
 
@@ -31,11 +32,16 @@ def get_sync_status(
     and retrieves latest cross-device state.
     """
     now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
 
-    # Active devices for this user
+    # Active devices for this user (excluding expired and revoked)
     active_devices_count = (
         db.query(UserSession)
-        .filter(UserSession.user_id == current_user.id, UserSession.is_active.is_(True))
+        .filter(
+            UserSession.user_id == current_user.id,
+            UserSession.is_active.is_(True),
+            UserSession.last_active_at >= cutoff,
+        )
         .count()
     )
 

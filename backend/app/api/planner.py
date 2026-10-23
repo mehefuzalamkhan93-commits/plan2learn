@@ -20,6 +20,7 @@ from app.schemas.planner import (
     StudyPlanVersionOut,
     StudyTaskOut,
     CreateTaskRequest,
+    UpdateTaskRequest,
     StudyTaskDetailOut,
 )
 from app.ai.config import get_ai_settings
@@ -522,6 +523,78 @@ async def create_task(
         topic_id=task.topic_id,
         topic_name=topic.name,
         subject=subject.name,
+        scheduled_date=task.scheduled_date,
+        scheduled_time=task.scheduled_time,
+        duration_minutes=task.duration_minutes,
+        completed=task.completed,
+        priority_tag=task.priority_tag,
+        created_at=task.created_at,
+    )
+
+
+@router.patch("/tasks/{task_id}", response_model=StudyTaskDetailOut)
+async def update_task(
+    task_id: str,
+    payload: UpdateTaskRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> StudyTaskDetailOut:
+    task = (
+        db.query(StudyTask)
+        .options(joinedload(StudyTask.topic).joinedload(Topic.subject))
+        .filter(StudyTask.id == task_id, StudyTask.user_id == current_user.id)
+        .first()
+    )
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found.",
+        )
+
+    if payload.subject is not None and payload.subject.strip():
+        subject_raw = payload.subject.strip()
+        subject_id = subject_raw.lower().replace(" ", "_")
+        subject = db.query(Subject).filter(Subject.id == subject_id).first()
+        if not subject:
+            subject = Subject(id=subject_id, name=subject_raw)
+            db.add(subject)
+            db.flush()
+        if task.topic:
+            task.topic.subject_id = subject.id
+            task.topic.subject = subject
+
+    if payload.title is not None and payload.title.strip():
+        if task.topic:
+            task.topic.name = payload.title.strip()
+
+    if payload.scheduled_date is not None:
+        task.scheduled_date = payload.scheduled_date
+
+    if payload.scheduled_time is not None:
+        task.scheduled_time = payload.scheduled_time
+
+    if payload.duration_minutes is not None:
+        task.duration_minutes = payload.duration_minutes
+
+    if payload.completed is not None:
+        task.completed = payload.completed
+
+    if payload.priority_tag is not None:
+        task.priority_tag = payload.priority_tag
+
+    db.commit()
+    db.refresh(task)
+
+    subj_name = task.topic.subject.name if (task.topic and task.topic.subject) else "General"
+    topic_name = task.topic.name if task.topic else "Study Session"
+
+    return StudyTaskDetailOut(
+        id=task.id,
+        plan_version_id=task.plan_version_id,
+        user_id=task.user_id,
+        topic_id=task.topic_id,
+        topic_name=topic_name,
+        subject=subj_name,
         scheduled_date=task.scheduled_date,
         scheduled_time=task.scheduled_time,
         duration_minutes=task.duration_minutes,

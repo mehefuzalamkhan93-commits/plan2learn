@@ -32,6 +32,8 @@ import { useTheme } from '@/lib/theme';
 import { FullProfileData, ProfileUpdateRequest, UserProfile } from '@/types';
 import { cn } from '@/lib/utils';
 import DeviceSyncManager from './DeviceSyncManager';
+import LogoutConfirmModal from '@/components/auth/LogoutConfirmModal';
+import { useDeviceAwareLogout } from '@/hooks/useDeviceAwareLogout';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -86,13 +88,22 @@ const quickSubjectSuggestions = [
 export default function SettingsModal({ isOpen, onClose, initialTab = 'profile' }: SettingsModalProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const { userProfile, setUserProfile, fetchDashboardSummary, setIsRoadmapStale } = usePlannerStore();
+  const { userProfile, setUserProfile, fetchUserProfile, fetchDashboardSummary, setIsRoadmapStale } = usePlannerStore();
   const { theme, toggleTheme } = useTheme();
+
+  const {
+    requestLogout,
+    isCheckingDevices,
+    showConfirmModal,
+    activeDevicesCount,
+    confirmLogout,
+    cancelLogout,
+    isLoggingOut,
+  } = useDeviceAwareLogout();
 
   const [activeTab, setActiveTab] = useState<'profile' | 'account' | 'devices'>(initialTab);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Synchronize activeTab with initialTab when opened
   useEffect(() => {
@@ -296,8 +307,10 @@ export default function SettingsModal({ isOpen, onClose, initialTab = 'profile' 
           setIsRoadmapStale(true);
         }
 
-        // Refresh dependent dashboard stats & summaries
+        // Refresh dependent store state & summaries
+        await fetchUserProfile();
         await fetchDashboardSummary();
+
         onClose();
       }
     } catch (err: any) {
@@ -308,22 +321,6 @@ export default function SettingsModal({ isOpen, onClose, initialTab = 'profile' 
       });
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    try {
-      await authAPI.logout();
-      try {
-        sessionStorage.removeItem('p2l_session_splash_shown');
-      } catch {}
-      router.push('/login');
-    } catch (err) {
-      console.error('Logout error:', err);
-      router.push('/login');
-    } finally {
-      setIsLoggingOut(false);
     }
   };
 
@@ -859,14 +856,14 @@ export default function SettingsModal({ isOpen, onClose, initialTab = 'profile' 
                   </p>
                   <button
                     type="button"
-                    onClick={handleLogout}
-                    disabled={isLoggingOut}
+                    onClick={requestLogout}
+                    disabled={isLoggingOut || isCheckingDevices}
                     className="cursor-pointer inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-semibold text-white shadow-md shadow-rose-600/20 transition-all hover:bg-rose-500 disabled:opacity-50"
                   >
-                    {isLoggingOut ? (
+                    {isLoggingOut || isCheckingDevices ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Logging out…
+                        {isCheckingDevices ? 'Checking sessions…' : 'Logging out…'}
                       </>
                     ) : (
                       <>
@@ -913,6 +910,13 @@ export default function SettingsModal({ isOpen, onClose, initialTab = 'profile' 
           </div>
         </motion.div>
       </div>
+
+      <LogoutConfirmModal
+        isOpen={showConfirmModal}
+        onClose={cancelLogout}
+        onConfirm={confirmLogout}
+        activeDevicesCount={activeDevicesCount}
+      />
     </AnimatePresence>,
     document.body
   );

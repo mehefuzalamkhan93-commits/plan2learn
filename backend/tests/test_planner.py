@@ -18,6 +18,7 @@ from app.ai.contracts import (
     PreparedAIRequest,
     ProviderHealth,
     ProviderId,
+    ProviderMode,
     ProviderOutput,
 )
 from app.ai.errors import AIProviderError
@@ -80,6 +81,8 @@ class FakeProvider:
 
     async def generate(self, request: PreparedAIRequest, model: str) -> ProviderOutput:
         self.calls.append((request, model))
+        if not self.outcomes:
+            raise AIProviderError(self.provider_id, AIErrorType.PROVIDER_ERROR, "No mock outcomes", fallback_eligible=True)
         outcome = self.outcomes.pop(0)
         if isinstance(outcome, Exception):
             raise outcome
@@ -124,6 +127,12 @@ def signup(client: SyncASGITestClient, email: str) -> None:
         },
     )
     assert response.status_code == 201
+    with client.app.state.testing_session() as db:
+        user = db.query(User).filter(User.email == email).first()
+        from app.core.security import create_access_token, register_or_rotate_session
+        session = register_or_rotate_session(db, user.id, device_id="test-device", device_name="Test Device", device_type="desktop")
+        token = create_access_token({"sub": user.id, "sid": session.id})
+        client.cookies["access_token"] = token
 
 
 def complete_onboarding(client: SyncASGITestClient) -> None:
@@ -140,7 +149,12 @@ def complete_onboarding(client: SyncASGITestClient) -> None:
 
 
 def create_test_router(primary: FakeProvider, fallback: FakeProvider) -> AIProviderRouter:
-    settings = AISettings(_env_file=None)
+    settings = AISettings(
+        _env_file=None,
+        ai_provider_mode=ProviderMode.AUTO,
+        ai_primary_provider=primary.provider_id,
+        ai_fallback_provider=fallback.provider_id,
+    )
     return AIProviderRouter(settings, {primary.provider_id: primary, fallback.provider_id: fallback})
 
 
